@@ -21,7 +21,7 @@ public:
         scope_count = 1;
         current_scope = new ScopeTable(MAX_SIZE);
         current_scope->set_id(scope_count);
-        cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
+        // cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
     }
     ~SymbolTable(){
         delete current_scope;
@@ -33,21 +33,28 @@ public:
         temp->set_id(++scope_count);
         current_scope = temp;
 
-        cout<<"new scope "<<current_scope->get_id()<<" created successfully"<<endl;
+        // cout<<"new scope "<<current_scope->get_id()<<" created successfully"<<endl;
     }
     void exit_scope(){
         current_scope = current_scope->get_parent();
-        cout<<"current scope exitted successfully "<<endl;   
+        // cout<<"current scope exitted successfully "<<endl;   
     }
 
     bool insert(string name, string type){
         current_scope->insert(name, type);
-        cout<<"inserted in current scope successfully "<<endl;  
+        // cout<<"inserted in current scope successfully "<<endl;  
     }
 
     bool remove(string name){
+        if(current_scope->delete_symbol(name)){
+            return true;
+        }
+        else{
+            return false;
+        }
 
     }
+    
     SymbolInfo* look_up(string name){
         ScopeTable* temp = current_scope;
         while(temp){
@@ -58,9 +65,11 @@ public:
             temp = temp->get_parent();
         }
     }
+
     void print_current_scope(){
         current_scope->print();
     }
+
     void print_all_scopes(){
         ScopeTable* temp = current_scope;
         while(temp){
