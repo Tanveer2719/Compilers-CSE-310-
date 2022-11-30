@@ -321,7 +321,13 @@ public:
 
 int main(){
     //read the input file
-    ifstream read("sample_input.txt");
+    ifstream read("sample.txt");
+    
+    // check the availability of the file
+    if(!read){
+        cout<<"file error !!!";
+        return 0;
+    }
     string s;
     
     //read first line for the size of the symbol table
