@@ -204,6 +204,8 @@ public:
             temp = temp->get_next();
             i++;
         }
+
+        return true;
     }
 
     // print the current scope table data
@@ -272,7 +274,7 @@ public:
     }
 
     bool insert(string name, string type){
-        current_scope->insert(name, type);
+        return current_scope->insert(name, type);
         cout<<"inserted in current scope successfully "<<endl;  
     }
 
@@ -309,7 +311,7 @@ public:
         }
     }
 
-    bool delete_all_scopes(){
+    void delete_all_scopes(){
         while(current_scope){
             write<<"\tScopeTable# "<<current_scope->get_id()<<" removed\n";
             current_scope = current_scope->get_parent();
@@ -321,7 +323,7 @@ public:
 
 int main(){
     //read the input file
-    ifstream read("sample.txt");
+    ifstream read("Sample_input.txt");
     
     // check the availability of the file
     if(!read){
