@@ -1,161 +1,168 @@
-#include<iostream>
-#include<string>
-#include"SymbolInfo.cpp"
+#include "ScopeTable.h"
 
-
-using namespace std;
-
-//hash function
-unsigned long long sdbm_hash(string str)
+ScopeTable::ScopeTable()
 {
-    unsigned long long  hash = 0;
-    int c, i = 0;
-
-    while (str[i] != '\0'){
-        c = int(str[i++]);
-        hash = c + (hash << 6) + (hash << 16) - hash;
-    }
-
-    return hash;
+    parent_scope = nullptr;
+    list = nullptr;
 }
 
-class ScopeTable{
-    
-    SymbolInfo* list;              // we need to maintain the available symbolInfo objects in the current scope
-    ScopeTable* parent_scope ;     // to find the parent of which the current scope is a part of
-    int id;                      // fpr tracking the scope
-    int MAX_SIZE = 5;
+// parameterized constructor
+ScopeTable::ScopeTable(int size)
+{
+    MAX_SIZE = size;
+    parent_scope = nullptr;
+    list = new SymbolInfo[MAX_SIZE];
+}
 
-    int get_bucket(string name){
-        return sdbm_hash(name) % MAX_SIZE;
-    }                    
+// getters
+SymbolInfo *ScopeTable::get_list()
+{
+    return list;
+}
+ScopeTable *ScopeTable::get_parent()
+{
+    return parent_scope;
+}
+int ScopeTable::get_id()
+{
+    return id;
+}
 
-public:
-    // default constructor
-    ScopeTable(){
-        parent_scope = nullptr;
-        list = nullptr;
-    }
+// setters
+void ScopeTable::set_parent(ScopeTable *temp)
+{
+    parent_scope = temp;
+}
+void ScopeTable::set_id(int id)
+{
+    this->id = id;
+}
 
-    // parameterized constructor
-    ScopeTable(int size){
-        MAX_SIZE = size;
-        parent_scope  = nullptr;
-        list = new SymbolInfo[MAX_SIZE];  
-    }
+// Destructor
+ScopeTable::~ScopeTable()
+{
+    delete[] list;
+}
 
-    //getters
-    SymbolInfo* get_list(){
-        return list;
-    }
-    ScopeTable* get_parent(){
-        return parent_scope ;
-    }
-    int get_id(){
-        return id;
-    }
+// lookup
+//  the flag is 0 when there is normal call of the method from the class
+//  so no writing in the file will occur
+//  flag = 1 when we call the look_up method for the execution of a command
+//  so writing in the file occurs
 
-    //setters
-    void set_parent(ScopeTable* temp){
-        parent_scope  = temp;
-    }
-    void set_id(int id){
-        this->id = id;
-    }
+SymbolInfo *ScopeTable::look_up(string name, int flag = 1)
+{
+    int index = get_bucket(name);
+    int i = 1;
 
-    //Destructor
-    ~ScopeTable(){
-        delete []list;
-    }
-
-    //lookup
-    SymbolInfo* look_up(string name){
-        int index = get_bucket(name);
-        
-        SymbolInfo* temp = list[index].get_current();
-        while(temp){
-            if(temp->get_name() == name){
-                return temp;
-            }
-            else
-                temp = temp->get_next();
+    SymbolInfo *temp = list[index].get_current();
+    while (temp)
+    {
+        if (temp->get_name() == name)
+        {
+            return temp;
         }
-        return nullptr;
+
+        else
+            temp = temp->get_next();
+        i++;
+    }
+    return nullptr;
+}
+
+// insertion
+bool ScopeTable::insert(string name, string type)
+{
+    int index = get_bucket(name);
+
+    // if there is no symbolinfo object present
+    if (list[index].get_name() == "")
+    {
+        list[index] = SymbolInfo(name, type);
+        return true;
     }
 
-    // insertion
-    bool insert(string name, string type){
-        int index = get_bucket(name);
-        
-        // if there is no symbolinfo object present
-        if(list[index].get_name() ==""){
-            list[index] = SymbolInfo(name, type);
+    SymbolInfo *symbolInfo = look_up(name, 0);
+    if (!symbolInfo)
+    {
+        SymbolInfo *temp = list[index].get_current();
+        int i = 1; // for counting the position of insertion
+        while (temp->get_next())
+        {
+            temp = temp->get_next();
+            i++;
+        }
+        temp->set_next(new SymbolInfo(name, type));
+        return true;
+    }
+    else
+    {
+        return false;
+        // cout<<"The name is already in the scope"<<endl;
+    }
+}
+
+// delete the symbol with given name
+bool ScopeTable::delete_symbol(string name)
+{
+    if (!look_up(name, 0))
+    {
+        cout << "no key of such name found" << endl;
+        return false;
+    }
+    int index = get_bucket(name);
+    SymbolInfo *temp = list[index].get_current();
+
+    if (temp->get_name() == name)
+    {
+        if (temp->get_next() == nullptr)
+        {
+            temp->set_name("");
+            temp->set_type("");
+        }
+        else
+        {
+            SymbolInfo *next = temp->get_next();
+            temp->set_name(next->get_name());
+            temp->set_type(next->get_type());
+            temp->set_next(next->get_next());
+            delete next;
+        }
+
+        return true;
+    }
+
+    int i = 1;
+    while (temp->get_next())
+    {
+        if (temp->get_next()->get_name() == name)
+        {
+            temp->set_next(temp->get_next()->get_next());
             return true;
         }
-
-        SymbolInfo* symbolInfo = look_up(name);
-        if(! symbolInfo){
-            SymbolInfo* temp = list[index].get_current();
-            while(temp->get_next()){
-                temp = temp->get_next();
-            }
-            temp->set_next(new SymbolInfo(name, type));
-            return true;
-        }else{
-            return false;
-            cout<<"The name is already in the scope"<<endl;
-        }
+        temp = temp->get_next();
+        i++;
     }
+}
 
-    // delete the symbol with given name
-    bool delete_symbol(string name){
-        if(!look_up(name)){
-            cout<<"no key of such name found"<<endl;
-            return false;
-        }
-        int index = get_bucket(name);
-        SymbolInfo* temp = list[index].get_current();
-        
-        if(temp->get_name() == name){
-            if(temp->get_next() == nullptr){
-                temp->set_name("");
-                temp->set_type("");
-            }else{
-                SymbolInfo* next = temp->get_next();
-                temp->set_name(next->get_name());
-                temp->set_type(next->get_type());
-                temp->set_next(next->get_next());
-                delete next;
-            }
+// print the current scope table data
+void ScopeTable::print()
+{
 
-            return true;
-        }
+    cout << "ScopeTable# " << id << endl;
+    for (int i = 0; i < MAX_SIZE; i++)
+    {
+        cout << (i + 1) << "--> ";
+        SymbolInfo *temp = list[i].get_current();
+        while (temp)
+        {
+            if (temp->get_name() == "")
+                break;
 
-        while(temp->get_next()){
-            if(temp->get_next()->get_name() == name){
-                temp->set_next(temp->get_next()->get_next());
-                return true;
-            }
+            cout << "<" << temp->get_name() << "," << temp->get_type() << ">";
             temp = temp->get_next();
         }
+
+        cout << endl;
     }
-
-    // print the current scope table data
-    void print(){
-
-        cout<<"ScopeTable# "<<id<<endl;
-        for(int i = 0;i<MAX_SIZE;i++){
-            cout<<(i+1)<<"--> ";
-            SymbolInfo* temp = list[i].get_current();
-            while(temp){
-                if(temp->get_name() == "") break;
-                
-                cout<<"<"<<temp->get_name()<<","<<temp->get_type()<<">";
-                temp = temp->get_next();
-            }
-
-            cout<<endl;
-        }
-
-    }
-};
+}
