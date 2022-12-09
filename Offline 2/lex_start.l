@@ -5,10 +5,15 @@
 
 %{
 #include <bits/stdc++.h>
+#include "SymbolTable.h"
+
 using namespace std;
 
 int total_line_count = 1;
 int l_count = 0;
+
+int size = 7;
+SymbolTable symbolTable(size);
 
 string comment;
 
@@ -18,9 +23,6 @@ string upper(string s){
     }
     return s;
 }
-
-
-
 %}
 
 KEYWORD if|for|do|int|float|void|switch|default|else|while|break|char|double|return|case|continue
@@ -105,6 +107,11 @@ WHITESPACE [ \t\r\v\f]+
 ";" {
     cout<<"<"<<"SEMICOLON"<<","<<yytext<<">"<<endl;  
 }
+
+[_A-Za-Z][_A-Za-z0-9] {
+    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;  
+}
+
 
 \/\* {
     comment = "/*";
