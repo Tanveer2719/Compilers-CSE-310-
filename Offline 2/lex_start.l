@@ -5,15 +5,15 @@
 
 %{
 #include <bits/stdc++.h>
-#include "SymbolTable.h"
+#include "1905025_Assignment_1.cpp"
+
 
 using namespace std;
 
 int total_line_count = 1;
 int l_count = 0;
 
-int size = 7;
-SymbolTable symbolTable(size);
+
 
 string comment;
 
@@ -108,7 +108,7 @@ WHITESPACE [ \t\r\v\f]+
     cout<<"<"<<"SEMICOLON"<<","<<yytext<<">"<<endl;  
 }
 
-[_A-Za-Z][_A-Za-z0-9] {
+[_A-Za-z][A-Za-z0-9_]* {
     cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;  
 }
 
