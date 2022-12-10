@@ -2,6 +2,7 @@
 
 %x MULTI_LINE_COMMENT
 %x ONE_LINE_COMMENT
+%x STRING
 
 %{
 #include <bits/stdc++.h>
@@ -12,10 +13,13 @@ using namespace std;
 
 int total_line_count = 1;
 int l_count = 0;
+int e_count = 0;
 
-
+int size = 7;
+SymbolTable symbolTable(size);
 
 string comment;
+string str;
 
 string upper(string s){
     for(int i = 0;i<s.size(); i++){
@@ -109,7 +113,80 @@ WHITESPACE [ \t\r\v\f]+
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
-    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;  
+    symbolTable.insert("ID", yytext);
+    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;
+    
+}
+
+\" {
+    str = "";
+    l_count = 0;
+    cout<<" STRING_STATE started"<<endl;
+    BEGIN STRING;
+}
+
+<STRING>\" {
+    cout<<"String found at line no: "<<total_line_count<<endl;
+    cout<<"The string was : \n"<<str<<endl;
+    total_line_count += l_count;
+    BEGIN INITIAL;
+}
+
+<STRING>\\\r\n {
+    l_count ++;
+    str += "\\\r\n";
+}
+
+<STRING>\n {
+    str += "\n";
+}
+
+<STRING>\\\n {
+    l_count++;
+    str += "\\\n";
+}
+
+<STRING><<EOF>> {
+    e_count++;
+    cout<<"String is not ended properly starting at line " << total_line_count <<endl;
+    cout<<"The comment is : \n"<<str<<endl;
+    total_line_count += l_count;
+    BEGIN INITIAL;
+}
+
+<STRING>[\r]?\n {
+    e_count ++;
+    cout<<"unfinished string"<<endl;
+    total_line_count += l_count;
+    BEGIN INITIAL;
+}
+
+<STRING>\\a {
+    str += "\a";
+}
+<STRING>\\t {
+    str +="\t"; 
+}
+<STRING>\\b {
+    str += "\b";
+}
+<STRING>\\f {
+    str += "\f";
+}
+<STRING>\\\" {
+    str += "\"";
+}
+<STRING>\\\' {
+    str += "\'";
+}
+<STRING>\\ {
+    str += "\\";
+}
+<STRING>\\r {
+    str += "\r";
+}
+<STRING>. {
+    str += yytext[0];;
 }
 
 

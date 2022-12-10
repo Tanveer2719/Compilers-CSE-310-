@@ -1,23 +1,7 @@
 #include<iostream>
-#include<fstream>
 #include<string>
-#include<sstream>
 using namespace std;
 
-
-//hash function
-unsigned long long sdbm_hash(string str)
-{
-    unsigned long long  hash = 0;
-    int c, i = 0;
-
-    while (str[i] != '\0'){
-        c = int(str[i++]);
-        hash = c + (hash << 6) + (hash << 16) - hash;
-    }
-
-    return hash;
-}
 
 class SymbolInfo{
     string name, type;
@@ -72,6 +56,19 @@ class ScopeTable{
     int id;                      // fpr tracking the scope
     int MAX_SIZE = 5;
 
+    //hash function
+    unsigned long long sdbm_hash(string str)
+    {
+        unsigned long long  hash = 0;
+        int c, i = 0;
+
+        while (str[i] != '\0'){
+            c = int(str[i++]);
+            hash = c + (hash << 6) + (hash << 16) - hash;
+        }
+
+        return hash;
+    }
     int get_bucket(string name){
         return sdbm_hash(name) % MAX_SIZE;
     }                    
@@ -273,7 +270,7 @@ public:
     }
 
     bool insert(string name, string type){
-        cout<<"inserted in current scope successfully "<<endl;
+        // cout<<"inserted in current scope successfully "<<endl;
         return current_scope->insert(name, type);     
     }
 
