@@ -11,7 +11,7 @@ SymbolTable::SymbolTable(int n)
     scope_count = 1;
     current_scope = new ScopeTable(MAX_SIZE);
     current_scope->set_id(scope_count);
-    // cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
+    cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
 }
 SymbolTable::~SymbolTable()
 {
@@ -37,13 +37,13 @@ void SymbolTable::exit_scope()
         return;
     }
     current_scope = current_scope->get_parent();
-    // cout<<"current scope exitted successfully "<<endl;
+    cout<<"current scope exitted successfully "<<endl;
 }
 
 bool SymbolTable::insert(string name, string type)
 {
     current_scope->insert(name, type);
-    // cout<<"inserted in current scope successfully "<<endl;
+    cout<<"inserted in current scope successfully "<<endl;
 }
 
 bool SymbolTable::remove(string name)

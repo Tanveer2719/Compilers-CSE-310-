@@ -3,6 +3,7 @@
 %x MULTI_LINE_COMMENT
 %x ONE_LINE_COMMENT
 %x STRING
+%x CHARACTER
 
 %{
 #include <bits/stdc++.h>
@@ -11,15 +12,17 @@
 
 using namespace std;
 
-int total_line_count = 1;
-int l_count = 0;
-int e_count = 0;
+int total_line_count = 1; /* for total line count */
+int l_count = 0;        /* for line count in a state */
+int e_count = 0;        /* for error count */
+int c_count = 0;        /* for character count in '' */
 
 int size = 7;
 SymbolTable symbolTable(size);
 
 string comment;
 string str;
+string character;
 
 string upper(string s){
     for(int i = 0;i<s.size(); i++){
@@ -62,6 +65,20 @@ WHITESPACE [ \t\r\v\f]+
 {NUMBER} {
     cout<<"<" <<"CONST_FLOAT"<<","<<yytext<<">"<<endl;
 }
+
+{DIGIT}*\.{DIGIT}*\.({DIGIT}*)? {
+    e_count ++;
+    cout<<"Redundant decimal point"<<endl;
+}
+{DIGIT}*[Ee][\+\-]?([0-9\+\-Ee\.]*) {
+    e_count ++;
+    cout<<"ILL formed number\n";
+}
+{DIGIT}*\.{DIGIT}*[Ee][\+\-]?([0-9\.\+\-eEe\.]*) {
+    e_count ++;
+    cout<<"ILL formed number\n";
+}
+
 
 "+"|"-" {
     cout<<"<" <<"ADDOP"<<","<<yytext<<">"<<endl;
@@ -113,15 +130,20 @@ WHITESPACE [ \t\r\v\f]+
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
-    symbolTable.insert("ID", yytext);
-    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;
-    
+    symbolTable.insert(yytext, "ID");
+    cout<<"ID found at line "<<total_line_count<<endl;
+    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;   
+}
+
+{DIGITS}[_A-Za-z0-9]* {
+    e_count ++;
+    cout<<"Id declaration error at line "<<total_line_count<<endl;
 }
 
 \" {
     str = "";
     l_count = 0;
-    cout<<" STRING_STATE started"<<endl;
+    cout<<" STRING_STATE started at line no "<<total_line_count<<endl;
     BEGIN STRING;
 }
 
@@ -137,7 +159,7 @@ WHITESPACE [ \t\r\v\f]+
     str += "\\\r\n";
 }
 
-<STRING>\n {
+<STRING>\\n {
     str += "\n";
 }
 
@@ -157,7 +179,7 @@ WHITESPACE [ \t\r\v\f]+
 <STRING>[\r]?\n {
     e_count ++;
     cout<<"unfinished string"<<endl;
-    total_line_count += l_count;
+    total_line_count += l_count + 1;
     BEGIN INITIAL;
 }
 
@@ -187,6 +209,67 @@ WHITESPACE [ \t\r\v\f]+
 }
 <STRING>. {
     str += yytext[0];;
+}
+
+
+' {
+    character = "'";
+    c_count = 0;
+    BEGIN CHARACTER;
+}
+<CHARACTER>' {
+    character += "'";
+    if(c_count > 1){
+        e_count ++;
+        cout<<"Constant Char error..multiple character found\n";
+    }
+    else if(c_count == 1){
+        cout<<"Constant character found "<< character<<endl;
+    }
+    else{
+        e_count ++;
+        cout<<"Unfinished character "<< endl;
+    }
+    c_count = 0;
+    BEGIN INITIAL;
+}
+<CHARACTER>\\n {
+    c_count ++;
+    character += "\\n";
+}
+<CHARACTER>\\t {
+    c_count ++;
+    character += "\\t";
+}
+<CHARACTER>\\a {
+    c_count ++;
+    character += "\\a";
+}
+<CHARACTER>\\' {
+    c_count ++;
+    character += "\\'";
+}
+<CHARACTER>\\f {
+    c_count ++;
+    character += "\\f";
+}
+<CHARACTER>\\r {
+    c_count ++;
+    character += "\\r";
+}
+<CHARACTER>\\b {
+    c_count ++;
+    character += "\\b";
+}
+<CHARACTER>[\r]?\n {
+    e_count ++;
+    cout<<"Unterminated character starting at "<< total_line_count<<endl;
+    total_line_count ++;
+    BEGIN INITIAL;
+}
+<CHARACTER>. {
+    c_count ++;
+    character += yytext[0];
 }
 
 
@@ -267,9 +350,13 @@ WHITESPACE [ \t\r\v\f]+
     total_line_count++;
 }
 
-{WHITESPACE} {
-    cout<<"WHITESPACE found"<<endl;
+{WHITESPACE} {}
+. {
+    e_count ++;
+    cout<<"Undetermined character found at line "<<total_line_count<<endl;
 }
+
+
 %%
 int main(int argc, char *argv[]){
 
