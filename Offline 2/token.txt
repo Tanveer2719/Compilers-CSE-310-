@@ -53,7 +53,7 @@
 <SEMICOLON, ;>
 <ID, printf>
 <LPAREN, (>
-<MULTI LINE STRING, The day 	was 	sunny>
+<MULTI LINE STRING, The day	was	sunny>
 <RPAREN, )>
 <SEMICOLON, ;>
 <RETURN, return>
