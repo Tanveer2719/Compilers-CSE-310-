@@ -10,6 +10,9 @@
 #include "1905025_Assignment_1.cpp"
 
 
+ofstream log_file ;
+ofstream token ;
+
 using namespace std;
 
 int total_line_count = 1; /* for total line count */
@@ -22,7 +25,9 @@ SymbolTable symbolTable(size);
 
 string comment;
 string str;
+string token_str;
 string character;
+string token_character;
 
 string upper(string s){
     for(int i = 0;i<s.size(); i++){
@@ -47,23 +52,24 @@ CONST_CHAR '.'|'\'|'\"'|'\\'|'(\[ntafrb0v])'
 
 WHITESPACE [ \t\r\v\f]+
 
+
 %%
 
 {KEYWORD} {
-    cout<<"<" <<upper(yytext)<<","<<yytext<<">"<<endl;
+    token<<"<" <<upper(yytext)<<", "<<yytext<<">\n";
 }
 
 {CONST_INT} {
-    cout<<"<" <<"CONST_INT"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"CONST_INT"<<", "<<yytext<<">\n";
 }
 {CONST_FLOAT} {
-    cout<<"<" <<"CONST_FLOAT"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
 }
 {CONST_EXPONENT} {
-    cout<<"<" <<"CONST_FLOAT"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
 }
 {NUMBER} {
-    cout<<"<" <<"CONST_FLOAT"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
 }
 
 {DIGIT}*\.{DIGIT}*\.({DIGIT}*)? {
@@ -81,58 +87,58 @@ WHITESPACE [ \t\r\v\f]+
 
 
 "+"|"-" {
-    cout<<"<" <<"ADDOP"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"ADDOP"<<", "<<yytext<<">\n";
 }
 "*"|"/"|"%" {
-    cout<<"<" <<"MULOP"<<","<<yytext<<">"<<endl;
+    token<<"<" <<"MULOP"<<", "<<yytext<<">\n";
 }
 "++"|"--" {
-    cout<<"<" <<"INCOP"<<","<<yytext<<">"<<endl; 
+    token<<"<" <<"INCOP"<<", "<<yytext<<">\n"; 
 }
 "<"|"<="|">"|">="|"=="|"!=" {
-    cout<<"<" <<"RELOP"<<","<<yytext<<">"<<endl; 
+    token<<"<" <<"RELOP"<<", "<<yytext<<">\n"; 
 }
 "=" {
-    cout<<"<" <<"ASSIGNOP"<<","<<yytext<<">"<<endl; 
+    token<<"<" <<"ASSIGNOP"<<", "<<yytext<<">\n"; 
 }
 "&&"|"||" {
-    cout<<"<" <<"LOGICOP"<<","<<yytext<<">"<<endl; 
+    token<<"<" <<"LOGICOP"<<", "<<yytext<<">\n"; 
 }
 "&"|"|"|"^"|"<<"|">>" {
-    cout<<"<" <<"BITOP"<<","<<yytext<<">"<<endl; 
+    token<<"<" <<"BITOP"<<", "<<yytext<<">\n";
 }
 "!" {
-    cout<<"<"<<"NOT"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"NOT"<<", "<<yytext<<">\n";
 }
 "(" {
-    cout<<"<"<<"LPAREN"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"LPAREN"<<", "<<yytext<<">\n";
 }
 ")" {
-    cout<<"<"<<"RPAREN"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"RPAREN"<<", "<<yytext<<">\n";
 }
 "{" {
-    cout<<"<"<<"LCURL"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"LCURL"<<", "<<yytext<<">\n";
 }
 "}" {
-    cout<<"<"<<"RCURL"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"RCURL"<<", "<<yytext<<">\n";
 }
 "[" {
-    cout<<"<"<<"LSQUARE"<<","<<yytext<<">"<<endl;
+    token<<"<"<<"LSQUARE"<<", "<<yytext<<">\n";
 }
 "]" {
-    cout<<"<"<<"RSQUARE"<<","<<yytext<<">"<<endl;  
+    token<<"<"<<"RSQUARE"<<", "<<yytext<<">\n" ;  
 }
 "," {
-    cout<<"<"<<"COMMA"<<","<<yytext<<">"<<endl;  
+    token<<"<"<<"COMMA"<<", "<<yytext<<">\n";  
 }
 ";" {
-    cout<<"<"<<"SEMICOLON"<<","<<yytext<<">"<<endl;  
+    token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
     symbolTable.insert(yytext, "ID");
     cout<<"ID found at line "<<total_line_count<<endl;
-    cout<<"<"<<"ID"<<","<<yytext<<">"<<endl;   
+    token<<"<"<<"ID"<<", "<<yytext<<">\n";   
 }
 
 {DIGITS}[_A-Za-z0-9]* {
@@ -142,6 +148,7 @@ WHITESPACE [ \t\r\v\f]+
 
 \" {
     str = "";
+    token_str = "";
     l_count = 0;
     cout<<" STRING_STATE started at line no "<<total_line_count<<endl;
     BEGIN STRING;
@@ -150,28 +157,35 @@ WHITESPACE [ \t\r\v\f]+
 <STRING>\" {
     cout<<"String found at line no: "<<total_line_count<<endl;
     cout<<"The string was : \n"<<str<<endl;
+    if(l_count <= 1){
+        token<<"<SINGLE LINE STRING, "<<token_str<<">\n";
+    }
+    else{
+        token<<"<MULTI LINE STRING, "<<token_str<<">\n";
+    }
     total_line_count += l_count;
     BEGIN INITIAL;
 }
 
+    /*
+     when we write \ and press enter
+    */
 <STRING>\\\r\n {
     l_count ++;
     str += "\\\r\n";
 }
 
-<STRING>\\n {
-    str += "\n";
-}
 
-<STRING>\\\n {
+<STRING>\\\r {
     l_count++;
-    str += "\\\n";
+    str += "\\\r";
+    token_str += "\\\r";
 }
 
 <STRING><<EOF>> {
     e_count++;
     cout<<"String is not ended properly starting at line " << total_line_count <<endl;
-    cout<<"The comment is : \n"<<str<<endl;
+    cout<<"The string is : \n"<<str<<endl;
     total_line_count += l_count;
     BEGIN INITIAL;
 }
@@ -185,35 +199,50 @@ WHITESPACE [ \t\r\v\f]+
 
 <STRING>\\a {
     str += "\a";
+    token_str += "\a";
 }
 <STRING>\\t {
+    
     str +="\t"; 
+    token_str += "\t";
+
 }
 <STRING>\\b {
     str += "\b";
+    token_str += "\b";
 }
 <STRING>\\f {
     str += "\f";
+    token_str += "\f";
 }
 <STRING>\\\" {
     str += "\"";
+    token_str += "\"";
+}
+<STRING>\\\\ {
+    token_str += "\\";
 }
 <STRING>\\\' {
     str += "\'";
+    token_str += "\'";
 }
 <STRING>\\ {
     str += "\\";
+    token_str += "\\";
 }
 <STRING>\\r {
     str += "\r";
+    token_str += "\r";
 }
 <STRING>. {
-    str += yytext[0];;
+    str += yytext[0];
+    token_str += yytext[0];
 }
 
 
 ' {
     character = "'";
+    token_character = "";
     c_count = 0;
     BEGIN CHARACTER;
 }
@@ -225,41 +254,52 @@ WHITESPACE [ \t\r\v\f]+
     }
     else if(c_count == 1){
         cout<<"Constant character found "<< character<<endl;
+        token<<"<CONST_CHAR, "<<token_character<<">\n";
     }
     else{
         e_count ++;
         cout<<"Unfinished character "<< endl;
     }
     c_count = 0;
+    token_character = "";
     BEGIN INITIAL;
 }
 <CHARACTER>\\n {
     c_count ++;
     character += "\\n";
+    token_character += "\n"; 
 }
 <CHARACTER>\\t {
     c_count ++;
     character += "\\t";
+    token_character += "\t"; 
+
 }
 <CHARACTER>\\a {
     c_count ++;
     character += "\\a";
+    token_character += "\a"; 
+
 }
 <CHARACTER>\\' {
     c_count ++;
     character += "\\'";
+    token_character += "\'"; 
 }
 <CHARACTER>\\f {
     c_count ++;
     character += "\\f";
+    token_character += "\f"; 
 }
 <CHARACTER>\\r {
     c_count ++;
     character += "\\r";
+    token_character += "\r"; 
 }
 <CHARACTER>\\b {
     c_count ++;
     character += "\\b";
+    token_character += "\b"; 
 }
 <CHARACTER>[\r]?\n {
     e_count ++;
@@ -270,6 +310,7 @@ WHITESPACE [ \t\r\v\f]+
 <CHARACTER>. {
     c_count ++;
     character += yytext[0];
+    token_character += yytext[0]; 
 }
 
 
@@ -371,11 +412,16 @@ int main(int argc, char *argv[]){
         return 0;
     }
 
+    log_file.open("log.txt", ios::out);
+    token.open("token.txt", ios::out);
+
     yyin = input;
     yylex();
     fclose(yyin);
+    
 
-
+    log_file.close();
+    token.close();
 
     return 0;
 
