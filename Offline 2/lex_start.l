@@ -20,7 +20,7 @@ int l_count = 0;        /* for line count in a state */
 int e_count = 0;        /* for error count */
 int c_count = 0;        /* for character count in '' */
 
-int size = 7;
+int size = 10;
 SymbolTable symbolTable(size);
 
 string comment;
@@ -28,6 +28,7 @@ string str;
 string token_str;
 string character;
 string token_character;
+string char_error;
 
 string upper(string s){
     for(int i = 0;i<s.size(); i++){
@@ -57,111 +58,160 @@ WHITESPACE [ \t\r\v\f]+
 
 {KEYWORD} {
     token<<"<" <<upper(yytext)<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
 }
 
 {CONST_INT} {
     token<<"<" <<"CONST_INT"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <CONST_INT> Lexeme "<<yytext<<" found\n";
+
 }
 {CONST_FLOAT} {
     token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+
 }
 {CONST_EXPONENT} {
     token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+
 }
 {NUMBER} {
     token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
 }
 
 {DIGIT}*\.{DIGIT}*\.({DIGIT}*)? {
     e_count ++;
-    cout<<"Redundant decimal point"<<endl;
+    log_file<<"Error at line# "<<total_line_count<<": TOO_MANY_DECIMAL_POINTS "<<yytext<<"\n";
 }
 {DIGIT}*[Ee][\+\-]?([0-9\+\-Ee\.]*) {
     e_count ++;
-    cout<<"ILL formed number\n";
+    log_file<<"Error at line# "<<total_line_count<<": ILLFORMED_NUMBER "<<yytext<<"\n";
+
 }
 {DIGIT}*\.{DIGIT}*[Ee][\+\-]?([0-9\.\+\-eEe\.]*) {
     e_count ++;
-    cout<<"ILL formed number\n";
+    log_file<<"Error at line# "<<total_line_count<<": ILLFORMED_NUMBER "<<yytext<<"\n";
 }
 
 
 "+"|"-" {
     token<<"<" <<"ADDOP"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <ADDOP> Lexeme "<<yytext<<" found\n";
 }
 "*"|"/"|"%" {
     token<<"<" <<"MULOP"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <MULOP> Lexeme "<<yytext<<" found\n";
+    
 }
 "++"|"--" {
     token<<"<" <<"INCOP"<<", "<<yytext<<">\n"; 
+    log_file<<"Line# "<<total_line_count<<": Token <INCOP> Lexeme "<<yytext<<" found\n";
+
 }
 "<"|"<="|">"|">="|"=="|"!=" {
     token<<"<" <<"RELOP"<<", "<<yytext<<">\n"; 
+    log_file<<"Line# "<<total_line_count<<": Token <RELOP> Lexeme "<<yytext<<" found\n";
+
 }
 "=" {
     token<<"<" <<"ASSIGNOP"<<", "<<yytext<<">\n"; 
+    log_file<<"Line# "<<total_line_count<<": Token <ASSIGNOP> Lexeme "<<yytext<<" found\n";
+   
 }
 "&&"|"||" {
     token<<"<" <<"LOGICOP"<<", "<<yytext<<">\n"; 
+    log_file<<"Line# "<<total_line_count<<": Token <LOGICOP> Lexeme "<<yytext<<" found\n";
+
 }
 "&"|"|"|"^"|"<<"|">>" {
     token<<"<" <<"BITOP"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <BITOP> Lexeme "<<yytext<<" found\n";
+
 }
 "!" {
     token<<"<"<<"NOT"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <NOT> Lexeme "<<yytext<<" found\n";
+
 }
 "(" {
     token<<"<"<<"LPAREN"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <LPAREN> Lexeme "<<yytext<<" found\n";
+
 }
 ")" {
     token<<"<"<<"RPAREN"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <RPAREN> Lexeme "<<yytext<<" found\n";
+
 }
 "{" {
     token<<"<"<<"LCURL"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <LCURL> Lexeme "<<yytext<<" found\n";
+    symbolTable.enter_scope();
 }
 "}" {
     token<<"<"<<"RCURL"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <RCURL> Lexeme "<<yytext<<" found\n";
+    symbolTable.exit_scope(log_file);
 }
 "[" {
     token<<"<"<<"LSQUARE"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <LSQUARE> Lexeme "<<yytext<<" found\n";
+
 }
 "]" {
     token<<"<"<<"RSQUARE"<<", "<<yytext<<">\n" ;  
+    log_file<<"Line# "<<total_line_count<<": Token <RSQUARE> Lexeme "<<yytext<<" found\n";
+
 }
 "," {
     token<<"<"<<"COMMA"<<", "<<yytext<<">\n";  
+    log_file<<"Line# "<<total_line_count<<": Token <COMMA> Lexeme "<<yytext<<" found\n";
+
 }
 ";" {
     token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
+    log_file<<"Line# "<<total_line_count<<": Token <SEMICOLON> Lexeme "<<yytext<<" found\n";
+
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
-    symbolTable.insert(yytext, "ID");
-    cout<<"ID found at line "<<total_line_count<<endl;
-    token<<"<"<<"ID"<<", "<<yytext<<">\n";   
+        // cout<<"ID found at line "<<total_line_count<<endl;
+    token<<"<"<<"ID"<<", "<<yytext<<">\n";
+    log_file<<"Line# "<<total_line_count<<": Token <ID> Lexeme "<<yytext<<" found\n";
+    
+    if(symbolTable.insert(yytext, "ID")){
+        symbolTable.print_all_scopes(log_file);
+    }else{
+       log_file<<"\t"<<yytext<<" already exisits in the current ScopeTable\n" ;
+    }
 }
 
 {DIGITS}[_A-Za-z0-9]* {
     e_count ++;
-    cout<<"Id declaration error at line "<<total_line_count<<endl;
+    log_file<<"Error at line# "<<total_line_count<<": INVALID_ID_SUFFIX_NUM_PREFIX "<<yytext<<"\n";
 }
 
 \" {
-    str = "";
+    str = "\"";
     token_str = "";
     l_count = 0;
-    cout<<" STRING_STATE started at line no "<<total_line_count<<endl;
+    // cout<<" STRING_STATE started at line no "<<total_line_count<<endl;
     BEGIN STRING;
 }
 
 <STRING>\" {
-    cout<<"String found at line no: "<<total_line_count<<endl;
-    cout<<"The string was : \n"<<str<<endl;
+    str += "\"";
     if(l_count <= 1){
         token<<"<SINGLE LINE STRING, "<<token_str<<">\n";
+        log_file<<"Line# "<<total_line_count<<": Token <SINGLE LINE STRING> Lexeme "<<str<<" found\n";
+    
     }
     else{
         token<<"<MULTI LINE STRING, "<<token_str<<">\n";
+        log_file<<"Line# "<<total_line_count<<": Token <MULTI LINE STRING> Lexeme "<<str<<" found\n";
+
     }
     total_line_count += l_count;
     BEGIN INITIAL;
@@ -173,6 +223,7 @@ WHITESPACE [ \t\r\v\f]+
 <STRING>\\\r\n {
     l_count ++;
     str += "\\\r\n";
+    
 }
 
 
@@ -184,16 +235,20 @@ WHITESPACE [ \t\r\v\f]+
 
 <STRING><<EOF>> {
     e_count++;
-    cout<<"String is not ended properly starting at line " << total_line_count <<endl;
-    cout<<"The string is : \n"<<str<<endl;
+    // cout<<"String is not ended properly starting at line " << total_line_count <<endl;
+    // cout<<"The string is : \n"<<str<<endl;
     total_line_count += l_count;
+    log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_STRING "<<str<<"\n";
+
     BEGIN INITIAL;
 }
 
 <STRING>[\r]?\n {
     e_count ++;
-    cout<<"unfinished string"<<endl;
+    // cout<<"unfinished string"<<endl;
     total_line_count += l_count + 1;
+    log_file<<"Error at line# "<<(total_line_count-1)<<": UNFINISHED_STRING "<<str<<"\n";
+
     BEGIN INITIAL;
 }
 
@@ -203,7 +258,7 @@ WHITESPACE [ \t\r\v\f]+
 }
 <STRING>\\t {
     
-    str +="\t"; 
+    str +="\\t"; 
     token_str += "\t";
 
 }
@@ -220,6 +275,7 @@ WHITESPACE [ \t\r\v\f]+
     token_str += "\"";
 }
 <STRING>\\\\ {
+    str += "\\"; 
     token_str += "\\";
 }
 <STRING>\\\' {
@@ -241,24 +297,27 @@ WHITESPACE [ \t\r\v\f]+
 
 
 ' {
-    character = "'";
+    character = "";
+    char_error = "\'";
     token_character = "";
     c_count = 0;
     BEGIN CHARACTER;
 }
 <CHARACTER>' {
-    character += "'";
+    character += "";
+    char_error += "\'";
     if(c_count > 1){
         e_count ++;
-        cout<<"Constant Char error..multiple character found\n";
+        log_file<<"Error at line# "<<total_line_count<<": MULTICHAR_CONST_CHAR "<<char_error<<"\n";
     }
     else if(c_count == 1){
-        cout<<"Constant character found "<< character<<endl;
+        log_file<<"Line# "<<total_line_count<<": Token <CONST_CHAR> Lexeme "<<character<<" found\n";
         token<<"<CONST_CHAR, "<<token_character<<">\n";
     }
     else{
         e_count ++;
-        cout<<"Unfinished character "<< endl;
+        log_file<<"Error at line# "<<total_line_count<<": EMPTY_CONST_CHAR "<<char_error<<"\n";
+
     }
     c_count = 0;
     token_character = "";
@@ -266,50 +325,58 @@ WHITESPACE [ \t\r\v\f]+
 }
 <CHARACTER>\\n {
     c_count ++;
-    character += "\\n";
+    character += "\n";
+    char_error += "\n";
     token_character += "\n"; 
 }
 <CHARACTER>\\t {
     c_count ++;
-    character += "\\t";
+    character += "\t";
+    char_error += "\t";
     token_character += "\t"; 
 
 }
 <CHARACTER>\\a {
     c_count ++;
-    character += "\\a";
+    character += "\a";
+    char_error += "\a";
     token_character += "\a"; 
 
 }
 <CHARACTER>\\' {
     c_count ++;
-    character += "\\'";
+    character += "\'";
+    char_error += "\\'";
     token_character += "\'"; 
 }
 <CHARACTER>\\f {
     c_count ++;
-    character += "\\f";
+    character += "\f";
+    char_error += "\f";
     token_character += "\f"; 
 }
 <CHARACTER>\\r {
     c_count ++;
-    character += "\\r";
+    character += "\r";
+    char_error += "\r";
     token_character += "\r"; 
 }
 <CHARACTER>\\b {
     c_count ++;
-    character += "\\b";
+    character += "\b";
+    char_error += "\b";
     token_character += "\b"; 
 }
 <CHARACTER>[\r]?\n {
     e_count ++;
-    cout<<"Unterminated character starting at "<< total_line_count<<endl;
+    log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_CONST_CHAR "<<char_error<<"\n";
     total_line_count ++;
     BEGIN INITIAL;
 }
 <CHARACTER>. {
     c_count ++;
     character += yytext[0];
+    char_error += yytext[0];
     token_character += yytext[0]; 
 }
 
@@ -317,21 +384,23 @@ WHITESPACE [ \t\r\v\f]+
 \/\* {
     comment = "/*";
     l_count = 0;
-    cout<<"MULTI_LINE_COMMENT Started"<<endl;
+    // cout<<"MULTI_LINE_COMMENT Started"<<endl;
     BEGIN MULTI_LINE_COMMENT;
 }
 <MULTI_LINE_COMMENT>\*\/ {
     comment += "*/";
-    cout<<"MULTI_LINE_COMMENT found starting at line no: "<<total_line_count<<endl;
-    cout<<"The comment was : \n"<<comment<<endl;
+    log_file<<"Line# "<<total_line_count<<": Token <MULTI LINE COMMENT> Lexeme "<<comment<<" found\n";
     total_line_count += l_count;
     BEGIN INITIAL;
 }
 
 <MULTI_LINE_COMMENT><<EOF>> {
-    cout<<"Comment is not ended properly starting at line " << total_line_count <<endl;
-    cout<<"The comment is : \n"<<comment<<endl;
+    e_count ++;
+    // cout<<"Comment is not ended properly starting at line " << total_line_count <<endl;
+    // cout<<"The comment is : \n"<<comment<<endl;
     total_line_count += l_count;
+    log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_COMMENT "<<comment<<"\n";
+
     BEGIN INITIAL;
 }
 
@@ -355,9 +424,7 @@ WHITESPACE [ \t\r\v\f]+
 
 <ONE_LINE_COMMENT>[\r]?\n {
     l_count++;
-    cout<<"single line comment ended\n";
-    cout<<"The comment is : \n";
-    cout<<comment<<endl;
+    log_file<<"Line# "<<total_line_count<<": Token <SINGLE LINE COMMENT> Lexeme "<<comment<<" found\n";
     total_line_count += l_count;
     BEGIN INITIAL;
 }
@@ -387,14 +454,14 @@ WHITESPACE [ \t\r\v\f]+
 }
 
 \n {
-    cout<<"new line found in line " << total_line_count<<endl;
+    // cout<<"new line found in line " << total_line_count<<endl;
     total_line_count++;
 }
 
 {WHITESPACE} {}
 . {
     e_count ++;
-    cout<<"Undetermined character found at line "<<total_line_count<<endl;
+    log_file<<"Error at line# "<<total_line_count<<": UNRECOGNIZED_CHAR "<<yytext<<"\n";
 }
 
 
@@ -418,7 +485,11 @@ int main(int argc, char *argv[]){
     yyin = input;
     yylex();
     fclose(yyin);
+
+    symbolTable.print_all_scopes(log_file);
     
+    log_file<<"Total lines: "<<total_line_count<<"\n";
+    log_file<<"Total errors: "<<e_count;
 
     log_file.close();
     token.close();

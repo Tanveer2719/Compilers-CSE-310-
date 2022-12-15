@@ -1,5 +1,4 @@
-#include<iostream>
-#include<string>
+#include<bits/stdc++.h>
 using namespace std;
 
 
@@ -205,8 +204,27 @@ public:
     }
 
     // print the current scope table data
+    void print(ostream &log_file){
+        
+        log_file<<"\tScopeTable# "<<id<<"\n";
+        for(int i = 0;i<MAX_SIZE;i++){
+            bool flag = false;
+            SymbolInfo* temp = list[i].get_current();
+            while(temp){
+                if(temp->get_name() == ""){
+                    break;
+                } 
+                flag = true;
+                log_file<<"\t"<<(i+1)<<"--> "<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
+                temp = temp->get_next();
+                
+            }
+            if(flag){
+                log_file<<"\n";
+            }
+        }
+    }
     void print(){
-
         cout<<"\tScopeTable# "<<id<<"\n";
         for(int i = 0;i<MAX_SIZE;i++){
             cout<<"\t"<<(i+1)<<"--> ";
@@ -220,6 +238,7 @@ public:
 
             cout<<"\n";
         }
+
     }
 };
 
@@ -257,15 +276,17 @@ public:
         cout<<"\tScopeTable# "<<current_scope->get_id()<<" created\n";
 
     }
-    void exit_scope(){
+    void exit_scope(ostream &log_file){
         int x = current_scope->get_id();
         
         if( x == 1){
-            cout<<"\tScopeTable# 1 cannot be removed\n";
+            cout<<"\tScopeTable# 1 is asking to be removed\n";
+            // print_all_scopes(log_file);
             return;
         }
         
         current_scope = current_scope->get_parent();
+        // print_all_scopes(log_file);
         cout<<"\tScopeTable# "<<x<<" removed\n";   
     }
 
@@ -298,10 +319,10 @@ public:
     void print_current_scope(){
         current_scope->print();
     }
-    void print_all_scopes(){
+    void print_all_scopes(ostream &log_file){
         ScopeTable* temp = current_scope;
         while(temp){
-            temp->print();
+            temp->print(log_file);
             cout<<endl;
             temp = temp->get_parent();
         }

@@ -1,0 +1,3 @@
+flex -o text1.c lex_demo.l
+g++ text1.c -lfl -o text.out
+./text.out text.txt
