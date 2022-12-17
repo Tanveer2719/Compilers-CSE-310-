@@ -203,7 +203,7 @@ WHITESPACE [ \t\r\v\f]+
 
 <STRING>\" {
     str += "\"";
-    if(l_count <= 1){
+    if(l_count == 0){
         token<<"<SINGLE LINE STRING, "<<token_str<<">\n";
         log_file<<"Line# "<<total_line_count<<": Token <SINGLE LINE STRING> Lexeme "<<str<<" found\n";
     
@@ -222,7 +222,15 @@ WHITESPACE [ \t\r\v\f]+
     */
 <STRING>\\\r\n {
     l_count ++;
+    cout<<"String started at "<<total_line_count<<endl;
     str += "\\\r\n";
+    
+}
+
+<STRING>\\\n {
+    l_count ++;
+    cout<<"String started at "<<total_line_count<<endl;
+    str += "\\\n";
     
 }
 
@@ -271,7 +279,7 @@ WHITESPACE [ \t\r\v\f]+
     token_str += "\f";
 }
 <STRING>\\\" {
-    str += "\"";
+    str += "\\\"";
     token_str += "\"";
 }
 <STRING>\\\\ {
@@ -323,6 +331,7 @@ WHITESPACE [ \t\r\v\f]+
     token_character = "";
     BEGIN INITIAL;
 }
+
 <CHARACTER>\\n {
     c_count ++;
     character += "\n";
@@ -367,6 +376,14 @@ WHITESPACE [ \t\r\v\f]+
     char_error += "\b";
     token_character += "\b"; 
 }
+<CHARACTER>\; {
+    e_count ++;
+    log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_CONST_CHAR "<<char_error<<"\n";
+    token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
+    log_file<<"Line# "<<total_line_count<<": Token <SEMICOLON> Lexeme "<<yytext<<" found\n";
+    BEGIN INITIAL;
+}
+
 <CHARACTER>[\r]?\n {
     e_count ++;
     log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_CONST_CHAR "<<char_error<<"\n";

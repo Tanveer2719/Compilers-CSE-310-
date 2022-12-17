@@ -213,9 +213,14 @@ public:
             while(temp){
                 if(temp->get_name() == ""){
                     break;
-                } 
-                flag = true;
-                log_file<<"\t"<<(i+1)<<"--> "<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
+                }
+                if(!flag){
+                    log_file<<"\t"<<(i+1)<<"--> "<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> "; 
+                    flag = true; 
+                }else{
+                    log_file<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
+                }
+                
                 temp = temp->get_next();
                 
             }
@@ -231,7 +236,6 @@ public:
             SymbolInfo* temp = list[i].get_current();
             while(temp){
                 if(temp->get_name() == "") break;
-                
                 cout<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
                 temp = temp->get_next();
             }
