@@ -13,9 +13,8 @@
 using namespace std;
 
 // output files
-ofstream log_file ;
-ofstream token ;
-ofstream error_file;
+extern ofstream log_file ;
+extern ofstream error_file;
 
 int total_line_count = 1; /* for total line count */
 int l_count = 0;        /* for line count in a state */
@@ -32,20 +31,8 @@ string character;       // for log
 string token_character;
 string char_error;
 
-string upper(string s){
-    for(int i = 0;i<s.size(); i++){
-        s[i] = toupper(s[i]);
-    }
-    return s;
-}
-
-void print_error(string type, string error){
-    cout<<"Error occured at line "<<total_line_count<< " error type "<<type<<" error : "<<error<<endl;
-}
 
 %}
-
-KEYWORD if|for|do|int|float|void|switch|default|else|while|break|char|double|return|case|continue
 
 DIGIT [0-9]
 DIGITS {DIGIT}+
@@ -81,19 +68,20 @@ WHITESPACE [ \t\r\v\f]+
 }
 
 "int" {
-    yyval.symbolInfo = new SymbolInfo(yytext, "KEYWORD");
+    // SYMBOLINFO(STRING NAME, STRING TYPE, STRING SPECIFIER)
+    yyval.symbolInfo = new SymbolInfo(yytext,"TYPE_SPECIFIER" "INT");
     cout<<"INT found at line "<<total_line_count<<endl;
     return INT;
 }
 
 "float" {
-    yyval.symbolInfo = new SymbolInfo(yytext, "KEYWORD");
+    yyval.symbolInfo = new SymbolInfo(yytext, "TYPE_SPECIFIER", "FLOAT");
     cout<<"Float found at line "<<total_line_count<<endl;
     return FLOAT;
 }
 
 "void" {
-    yyval.symbolInfo = new SymbolInfo(yytext, "KEYWORD");
+    yyval.symbolInfo = new SymbolInfo(yytext, "TYPE_SPECIFIER", "VOID");
     cout<<"void found at line "<<total_line_count<<endl;
     return VOID;
 }
@@ -135,7 +123,7 @@ WHITESPACE [ \t\r\v\f]+
 }
 
 "double" {
-    yyval.symbolInfo = new SymbolInfo(yytext, "KEYWORD");
+    yyval.symbolInfo = new SymbolInfo(yytext, "TYPE_SPECIFIER", "DOUBLE");
     cout<<"double found at line "<<total_line_count<<endl;
     return DOUBLE;
 }
@@ -158,28 +146,29 @@ WHITESPACE [ \t\r\v\f]+
     return CONTINUE;
 }
 
-
+"printf" {
+    yylval.symbolInfo = new SymbolInfo(yytext, "KEYWORD");
+    return PRINT;
+}
 
 
 
 {CONST_INT} {
-    token<<"<" <<"CONST_INT"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <CONST_INT> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext, "CONST_INT", "INT");
+    return CONST_INT;
 }
 {CONST_FLOAT} {
-    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT");
+    return CONST_FLOAT;
 }
 {CONST_EXPONENT} {
-    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+    yyval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT");
+    return CONST_FLOAT;
 
 }
 {NUMBER} {
-    token<<"<" <<"CONST_FLOAT"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+    yyval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT");
+    return CONST_FLOAT;
 }
 
 {DIGIT}*\.{DIGIT}*\.({DIGIT}*)? {
@@ -198,95 +187,83 @@ WHITESPACE [ \t\r\v\f]+
 
 
 "+"|"-" {
-    token<<"<" <<"ADDOP"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <ADDOP> Lexeme "<<yytext<<" found\n";
+    yyval.symbolInfo = new SymbolInfo(yytext,"ADDOP");
+    return ADDOP;
 }
 "*"|"/"|"%" {
-    token<<"<" <<"MULOP"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <MULOP> Lexeme "<<yytext<<" found\n";
-    
+    yyval.symbolInfo = new SymbolInfo(yytext,"MULOP");
+    return MULOP;
 }
 "++"|"--" {
-    token<<"<" <<"INCOP"<<", "<<yytext<<">\n"; 
-    log_file<<"Line# "<<total_line_count<<": Token <INCOP> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"INCOP");
+    return INCOP;
 }
 "<"|"<="|">"|">="|"=="|"!=" {
-    token<<"<" <<"RELOP"<<", "<<yytext<<">\n"; 
-    log_file<<"Line# "<<total_line_count<<": Token <RELOP> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"RELOP");
+    return RELOP;
 }
 "=" {
-    token<<"<" <<"ASSIGNOP"<<", "<<yytext<<">\n"; 
-    log_file<<"Line# "<<total_line_count<<": Token <ASSIGNOP> Lexeme "<<yytext<<" found\n";
-   
+    yyval.symbolInfo = new SymbolInfo(yytext,"ASSIGNOP");
+    return ASSIGNOP;
+    
 }
 "&&"|"||" {
-    token<<"<" <<"LOGICOP"<<", "<<yytext<<">\n"; 
-    log_file<<"Line# "<<total_line_count<<": Token <LOGICOP> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"LOGICOP");
+    return LOGICOP;
+   
 }
 "&"|"|"|"^"|"<<"|">>" {
-    token<<"<" <<"BITOP"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <BITOP> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"BITOP");
+    return BITOP;
+    
 }
 "!" {
-    token<<"<"<<"NOT"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <NOT> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"NOT");
+    return NOT;
+    
 }
 "(" {
-    token<<"<"<<"LPAREN"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <LPAREN> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"LPAREN");
+    return LPAREN;
+    
 }
 ")" {
-    token<<"<"<<"RPAREN"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <RPAREN> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"RPAREN");
+    return RPAREN;
 }
 "{" {
-    token<<"<"<<"LCURL"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <LCURL> Lexeme "<<yytext<<" found\n";
-    symbolTable.enter_scope();
+    yyval.symbolInfo = new SymbolInfo(yytext,"LCURL");
+    return LCURL;
+    
 }
 "}" {
-    token<<"<"<<"RCURL"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <RCURL> Lexeme "<<yytext<<" found\n";
-    symbolTable.exit_scope(log_file);
+    yyval.symbolInfo = new SymbolInfo(yytext,"RCURL");
+    return RCURL;
+   
 }
 "[" {
-    token<<"<"<<"LSQUARE"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <LSQUARE> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"LSQUARE");
+    return LSQUARE;
+   
 }
 "]" {
-    token<<"<"<<"RSQUARE"<<", "<<yytext<<">\n" ;  
-    log_file<<"Line# "<<total_line_count<<": Token <RSQUARE> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"RSQUARE");
+    return RSQUARE;
+    
 }
 "," {
-    token<<"<"<<"COMMA"<<", "<<yytext<<">\n";  
-    log_file<<"Line# "<<total_line_count<<": Token <COMMA> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"COMMA");
+    return COMMA;
 }
 ";" {
-    token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
-    log_file<<"Line# "<<total_line_count<<": Token <SEMICOLON> Lexeme "<<yytext<<" found\n";
-
+    yyval.symbolInfo = new SymbolInfo(yytext,"SEMICOLON");
+    return SEMICOLON;
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
-        // cout<<"ID found at line "<<total_line_count<<endl;
-    token<<"<"<<"ID"<<", "<<yytext<<">\n";
-    log_file<<"Line# "<<total_line_count<<": Token <ID> Lexeme "<<yytext<<" found\n";
-    
-    if(symbolTable.insert(yytext, "ID")){
-        symbolTable.print_all_scopes(log_file);
-    }else{
-       log_file<<"\t"<<yytext<<" already exisits in the current ScopeTable\n" ;
-    }
+    cout<<"ID found at line "<<total_line_count<<endl;
+    yyval.symbolInfo = new SymbolInfo(yytext, "ID");
+    return ID;
 }
 
 {DIGITS}[_A-Za-z0-9]* {
@@ -305,12 +282,12 @@ WHITESPACE [ \t\r\v\f]+
 <STRING>\" {
     str += "\"";
     if(l_count == 0){
-        token<<"<SINGLE LINE STRING, "<<token_str<<">\n";
+        // token<<"<SINGLE LINE STRING, "<<token_str<<">\n";
         log_file<<"Line# "<<total_line_count<<": Token <SINGLE LINE STRING> Lexeme "<<str<<" found\n";
     
     }
     else{
-        token<<"<MULTI LINE STRING, "<<token_str<<">\n";
+        // token<<"<MULTI LINE STRING, "<<token_str<<">\n";
         log_file<<"Line# "<<total_line_count<<": Token <MULTI LINE STRING> Lexeme "<<str<<" found\n";
 
     }
@@ -420,8 +397,10 @@ WHITESPACE [ \t\r\v\f]+
         log_file<<"Error at line# "<<total_line_count<<": MULTICHAR_CONST_CHAR "<<char_error<<"\n";
     }
     else if(c_count == 1){
-        log_file<<"Line# "<<total_line_count<<": Token <CONST_CHAR> Lexeme "<<character<<" found\n";
-        token<<"<CONST_CHAR, "<<token_character<<">\n";
+        // log_file<<"Line# "<<total_line_count<<": Token <CONST_CHAR> Lexeme "<<character<<" found\n";
+        // token<<"<CONST_CHAR, "<<token_character<<">\n";
+        yylval.symbolInfo = new SymbolInfo(token_character, "CONST_CHAR");
+        return CONST_CHAR;
     }
     else{
         e_count ++;
@@ -480,7 +459,7 @@ WHITESPACE [ \t\r\v\f]+
 <CHARACTER>\; {
     e_count ++;
     log_file<<"Error at line# "<<total_line_count<<": UNFINISHED_CONST_CHAR "<<char_error<<"\n";
-    token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
+    // token<<"<"<<"SEMICOLON"<<", "<<yytext<<">\n";  
     log_file<<"Line# "<<total_line_count<<": Token <SEMICOLON> Lexeme "<<yytext<<" found\n";
     BEGIN INITIAL;
 }
@@ -584,34 +563,3 @@ WHITESPACE [ \t\r\v\f]+
 
 
 %%
-int main(int argc, char *argv[]){
-
-    if(argc != 2){
-        cout<<"Please give a file name..please"<<endl;
-        return 0;
-    }
-
-    FILE * input = fopen(argv[1], "r");
-    if(input == NULL){
-        cout<<"The file is not valid...please enter a valid one"<<endl;
-        return 0;
-    }
-
-    log_file.open("log.txt", ios::out);
-    token.open("token.txt", ios::out);
-
-    yyin = input;
-    yylex();
-    fclose(yyin);
-
-    symbolTable.print_all_scopes(log_file);
-    
-    log_file<<"Total lines: "<<total_line_count<<"\n";
-    log_file<<"Total errors: "<<e_count;
-
-    log_file.close();
-    token.close();
-
-    return 0;
-
-}

@@ -3,7 +3,9 @@ using namespace std;
 
 
 class SymbolInfo{
-    string name, type;
+    string name;
+    string type;
+    string specifier;
     SymbolInfo* next;
 public:
 
@@ -20,6 +22,11 @@ public:
         this->type = type;
         next = nullptr;
     }
+    SymbolInfo(string name, string type, string specifier){
+        this->name = name;
+        this->type = type;
+        this->specifier = specifier;
+    }
 
     //getters
     string get_name(){
@@ -27,6 +34,9 @@ public:
     }
     string get_type(){
         return type;
+    }
+    string get_specifier(){
+        return specifier;
     }
     SymbolInfo* get_next(){
         return next;
@@ -41,6 +51,9 @@ public:
     }
     void set_type(string type){
         this->type = type;
+    }
+    void set_specifier(string specifier){
+        this->specifier = specifier;
     }
     void set_next(SymbolInfo* next){
         this->next = next;
