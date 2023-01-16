@@ -52,7 +52,25 @@ public:
         this->leaf = symbolInfo->is_leaf();
         this->child_list = symbolInfo->get_child_list();
     }
-
+    
+    // for parseTree construction 
+    SymbolInfo(string name, string type, int start){
+        this->name = name;
+        this->type = type;
+        this->start_line = start;
+        this->end_line - start;
+        this->leaf = true;
+    }
+    SymbolInfo(string name, string type, string specifier, int start){
+        this->name = name;
+        this->type = type;
+        this->specifier = specifier;
+        this->start_line = start;
+        this->end_line - start;
+        this->leaf = true;
+    }
+    
+    
     // printSymbolInfo
     string toString(){
         string s = "<";
@@ -60,12 +78,12 @@ public:
             s = s + name + ", " + type + "> ";
             return s;
         }
-        else if(type == "ID"){
-            s = s + name + ", " + specifier + "> ";
+        else if(specifier.length()>0){
+            s = s + name + ", " + type + ", " + specifier + "> ";
             return s;
         }
         else{
-            s = s + name + ", " + type + ", " + specifier + "> ";
+            s = s + name + ", " + specifier + "> ";
             return s;
         }
     }
