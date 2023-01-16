@@ -4,16 +4,26 @@ using namespace std;
 
 class SymbolInfo{
     string name;
-    string type;
-    string specifier;
+    string type;            // id, function
+    string specifier;       // int, float, void
     SymbolInfo* next;
+    bool function = false;
+    bool array = false;
+    vector<SymbolInfo*> parameters;
+    vector<SymbolInfo*> declarations;
+    vector<SymbolInfo*> child_list;
+    int start_line = 0;
+    int end_line = 0;
+    bool is_leaf = false;
 public:
 
     // default constructor
     SymbolInfo(){
         name = "";
         type = "";
+        specifier = "";
         next = nullptr;
+        
     }
 
     //parameterized constructor
@@ -21,12 +31,45 @@ public:
         this->name = name;
         this->type = type;
         next = nullptr;
+        
     }
     SymbolInfo(string name, string type, string specifier){
         this->name = name;
         this->type = type;
         this->specifier = specifier;
     }
+    SymbolInfo(SymbolInfo *symbolInfo){
+        this->name = symbolInfo->get_name();
+        this->type = symbolInfo->get_type();
+        this->specifier = symbolInfo->get_specifier();
+        this->array = symbolInfo->is_array();
+        this->function = symbolInfo->is_function();
+        this->parameters = symbolInfo->get_parameters();
+        this->declarations = symbolInfo->get_declarations();
+        this->next = symbolInfo->get_next();
+        this->start_line = symbolInfo->get_start_line();
+        this->end_line = symbolInfo->get_end_line();
+        this->is_leaf = symbolInfo->get_is_leaf();
+        this->child_list = symbolInfo->get_child_list();
+    }
+
+    // printSymbolInfo
+    string toString(){
+        string s = "<";
+        if(specifier == ""){
+            s = s + name + ", " + type + "> ";
+            return s;
+        }
+        else if(type == "ID"){
+            s = s + name + ", " + specifier + "> ";
+            return s;
+        }
+        else{
+            s = s + name + ", " + type + ", " + specifier + "> ";
+            return s;
+        }
+    }
+
 
     //getters
     string get_name(){
@@ -44,6 +87,31 @@ public:
     SymbolInfo* get_current(){          // get current symbolInfo class
         return this;
     }
+    vector<SymbolInfo*> get_parameters(){
+        return parameters;
+    }
+    vector<SymbolInfo*> get_declarations(){
+        return declarations;
+    }
+    vector<SymbolInfo*> get_child_list(){
+        return child_list;
+    }
+    bool is_function(){
+        return function;
+    }
+    bool is_array(){
+        return array;
+    }
+    int get_start_line(){
+        return start_line;
+    }
+    int get_end_line(){
+        return end_line;
+    }
+    bool get_is_leaf(){
+        return is_leaf;
+    }
+
 
     //setters
     void set_name(string name){
@@ -58,6 +126,39 @@ public:
     void set_next(SymbolInfo* next){
         this->next = next;
     }
+    void set_parameters(vector<SymbolInfo*> x){
+        this->parameters = x;
+    }
+    void set_declarations(vector<SymbolInfo*> x){
+        this->declarations = x;
+    }
+    void add_declaration(SymbolInfo *symbolInfo){
+        declarations.push_back(symbolInfo);
+    }
+    void add_parameter(SymbolInfo *symbolInfo){
+        parameters.push_back(symbolInfo);
+    }
+    void set_function(){
+        this->type = "FUNCTION";
+        function = true;
+    }
+    void set_array(){
+        this->type = "ARRAY";
+        array = true;
+    }
+    void set_start_line(int x){
+        start_line = x;
+    }
+    void set_end_line(int x){
+        end_line = x;
+    }
+    bool set_is_leaf(){
+        is_leaf = true;
+    }
+    void add_child(vector<SymbolInfo*> symbolInfoList){
+        for(auto x: symbolInfoList)
+            child_list.push_back(x);
+    }
 
 };
 
@@ -66,7 +167,7 @@ class ScopeTable{
     SymbolInfo* list;              // we need to maintain the available symbolInfo objects in the current scope
     ScopeTable* parent_scope ;     // to find the parent of which the current scope is a part of
     int id;                      // fpr tracking the scope
-    int MAX_SIZE = 5;
+    int MAX_SIZE = 11;
 
     //hash function
     unsigned long long sdbm_hash(string str)
@@ -135,9 +236,6 @@ public:
         SymbolInfo* temp = list[index].get_current();
         while(temp){
             if(temp->get_name() == name){
-                if(flag){
-                    cout<<"\t'"<<name<<"' found in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<i<<"\n";
-                }
                 return temp;
             }
             else
@@ -154,7 +252,7 @@ public:
         // if there is no symbolinfo object present
         if(list[index].get_name() ==""){
             list[index] = SymbolInfo(name, type);
-            cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<1<<"\n";
+            // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<1<<"\n";
             return true;
         }
 
@@ -169,19 +267,81 @@ public:
             temp->set_next(new SymbolInfo(name, type));
             
             // write to file
-            cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
+            // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
 
             return true;
         }else{
-            cout<<"\t'"<<name<<"' already exists in the current ScopeTable\n";
+            // cout<<"\t'"<<name<<"' already exists in the current ScopeTable\n";
             return false;
         }
+    }
+
+    bool insert(SymbolInfo *symbolInfo){
+        string name = symbolInfo->get_name();
+        int index = get_bucket(name);
+        
+        // if there is no symbolinfo object present
+        if(list[index].get_name() ==""){
+            list[index] = SymbolInfo(symbolInfo);
+            // cout<<"\tInserted in ScopeTable# "<<id<<(symbolInfo->toString())<<"\n";
+            return true;
+        }
+
+        SymbolInfo* temp_obj = look_up(name, 0);
+        if(! temp_obj){
+            SymbolInfo* temp = list[index].get_current();
+            int i = 1;      // for counting the position of insertion
+            while(temp->get_next()){
+                temp = temp->get_next();
+                i++; 
+            }
+            temp->set_next(new SymbolInfo(symbolInfo));
+            
+            //cout<<"\tInserted in ScopeTable# "<<id<<(symbolInfo->toString())<<"\n";
+
+            return true;
+        }else{
+            return false;
+        }
+
+
+    }
+
+    bool insert(string name, string  type, string type_specifier){
+        int index = get_bucket(name);
+        
+        // if there is no symbolinfo object present
+        if(list[index].get_name() ==""){
+            list[index] = SymbolInfo(name, type, type_specifier);
+            // // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<1<<"\n";
+            return true;
+        }
+
+        SymbolInfo* symbolInfo = look_up(name, 0);
+        if(! symbolInfo){
+            SymbolInfo* temp = list[index].get_current();
+            int i = 1;      // for counting the position of insertion
+            while(temp->get_next()){
+                temp = temp->get_next();
+                i++; 
+            }
+            temp->set_next(new SymbolInfo(name, type, type_specifier));
+            
+            // write to file
+            // // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
+
+            return true;
+        }else{
+            // cout<<"\t'"<<name<<"' already exists in the current ScopeTable\n";
+            return false;
+        }
+
     }
 
     // delete the symbol with given name
     bool delete_symbol(string name){
         if(!look_up(name, 0)){
-            cout<<"\tNot found in the current ScopeTable\n";
+            // cout<<"\tNot found in the current ScopeTable\n";
             return false;
         }
         int index = get_bucket(name);
@@ -198,7 +358,7 @@ public:
                 temp->set_next(next->get_next());
                 delete next;
             }
-            cout<<"\tDeleted '"<<name<<"' from ScopeTable# "<<id<<" at position "<<(index+1)<<", 1\n";
+            // cout<<"\tDeleted '"<<name<<"' from ScopeTable# "<<id<<" at position "<<(index+1)<<", 1\n";
             return true;
         }
 
@@ -206,7 +366,7 @@ public:
         while(temp->get_next()){
             if(temp->get_next()->get_name() == name){
                 temp->set_next(temp->get_next()->get_next());
-                cout<<"\tDeleted '"<<name<<"' from ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
+                // cout<<"\tDeleted '"<<name<<"' from ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
                 return true;
             }
             temp = temp->get_next();
@@ -228,10 +388,10 @@ public:
                     break;
                 }
                 if(!flag){
-                    log_file<<"\t"<<(i+1)<<"--> "<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> "; 
+                    log_file<<"\t"<<(i+1)<<"--> "<<temp->toString(); 
                     flag = true; 
                 }else{
-                    log_file<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
+                    log_file<<temp->toString();
                 }
                 
                 temp = temp->get_next();
@@ -245,17 +405,26 @@ public:
     void print(){
         cout<<"\tScopeTable# "<<id<<"\n";
         for(int i = 0;i<MAX_SIZE;i++){
-            cout<<"\t"<<(i+1)<<"--> ";
+            bool flag = false;
             SymbolInfo* temp = list[i].get_current();
             while(temp){
-                if(temp->get_name() == "") break;
-                cout<<"<"<<temp->get_name()<<","<<temp->get_type()<<"> ";
+                if(temp->get_name() == ""){
+                    break;
+                }
+                if(!flag){
+                    cout<<"\t"<<(i+1)<<"--> "<<temp->toString(); 
+                    flag = true; 
+                }else{
+                    cout<<temp->toString();
+                }
+                
                 temp = temp->get_next();
+                
             }
-
-            cout<<"\n";
+            if(flag){
+                cout<<"\n";
+            }
         }
-
     }
 };
 
@@ -276,9 +445,9 @@ public:
         scope_count = 1;
         current_scope = new ScopeTable(MAX_SIZE);
         current_scope->set_id(scope_count);
-        // cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
+        // // cout<<"main scope "<<current_scope->get_id()<<" created successfully"<<endl;
         // write into the file
-        cout<<"\tScopeTable# "<<scope_count<<" created\n";
+        // cout<<"\tScopeTable# "<<scope_count<<" created\n";
     }
     ~SymbolTable(){
         delete current_scope;
@@ -290,26 +459,35 @@ public:
         temp->set_id(++scope_count);
         current_scope = temp;
 
-        cout<<"\tScopeTable# "<<current_scope->get_id()<<" created\n";
+        // // cout<<"\tScopeTable# "<<current_scope->get_id()<<" created\n";
 
     }
     void exit_scope(ostream &log_file){
         int x = current_scope->get_id();
         
         if( x == 1){
-            cout<<"\tScopeTable# 1 is asking to be removed\n";
+            // // cout<<"\tScopeTable# 1 is asking to be removed\n";
             // print_all_scopes(log_file);
             return;
         }
         
         current_scope = current_scope->get_parent();
         // print_all_scopes(log_file);
-        cout<<"\tScopeTable# "<<x<<" removed\n";   
+        // // cout<<"\tScopeTable# "<<x<<" removed\n";   
     }
 
     bool insert(string name, string type){
-        // cout<<"inserted in current scope successfully "<<endl;
+        // // cout<<"inserted in current scope successfully "<<endl;
         return current_scope->insert(name, type);     
+    }
+
+    bool insert(SymbolInfo* symbolInfo){
+        return current_scope->insert(symbolInfo);
+
+    }
+
+    bool insert(string name, string type, string type_specifier){
+        return current_scope->insert(name, type, type_specifier);
     }
 
     bool remove(string name){
@@ -330,7 +508,7 @@ public:
             }
             temp = temp->get_parent();
         }
-        cout <<"\t'"<<name<<"' not found in any of the ScopeTables\n";
+        // // cout <<"\t'"<<name<<"' not found in any of the ScopeTables\n";
         return nullptr;
     }
     void print_current_scope(){
@@ -340,6 +518,15 @@ public:
         ScopeTable* temp = current_scope;
         while(temp){
             temp->print(log_file);
+            // // cout<<endl;
+            temp = temp->get_parent();
+        }
+    }
+    
+    void print_all_scopes(){
+        ScopeTable* temp = current_scope;
+        while(temp){
+            temp->print();
             cout<<endl;
             temp = temp->get_parent();
         }
@@ -347,7 +534,7 @@ public:
 
     void delete_all_scopes(){
         while(current_scope){
-            cout<<"\tScopeTable# "<<current_scope->get_id()<<" removed\n";
+            // // cout<<"\tScopeTable# "<<current_scope->get_id()<<" removed\n";
             current_scope = current_scope->get_parent();
         }
     }
