@@ -118,6 +118,24 @@
             return "INT";
         }
     }
+
+    void print_parse_tree(SymbolInfo* symbolInfo, int depth){
+        string s ="";
+        for(int x= 0;x<depth;x++){
+            s+=" ";
+        }
+         s = s + symbolInfo->get_type() + " : ";
+        auto child_list = symbolInfo->get_child_list();
+        for(SymbolInfo* x: child_list){
+            s = s+ x->get_type() + " "; 
+        }
+        s+="\n";
+        parse_file<<s;
+        for(auto x: child_list){
+            print_parse_tree(x, depth+1);
+        }
+        
+    }
     
     int yyparse(void);
     int yylex(void);
@@ -134,8 +152,7 @@
 
 // PRECEDENCE DECLARATION
 %left ADDOP MULOP
-%nonassoc THEN
-%nonassoc ELSE 
+%right ELSE THEN 
 
 %%
 
@@ -149,6 +166,7 @@ start : program {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
+            print_parse_tree($$, 0);
     }
     ;
 
@@ -276,7 +294,7 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
 
 func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_function($2,$1);} compound_statement {  
             //write_to_console("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-            symboltable->print_all_scopes();
+            // symboltable->print_all_scopes();
             write_to_log("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
 
             $$ = new SymbolInfo("", "func_definition");
@@ -289,7 +307,7 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_functio
 
         | type_specifier ID LPAREN RPAREN {insert_function($2,$1); }compound_statement {   
             write_to_log("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
-            symboltable->print_all_scopes();
+            // symboltable->print_all_scopes();
             //write_to_console("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
 
             $$ = new SymbolInfo("", "func_definition");
@@ -401,7 +419,7 @@ compound_statement : MLCURL statements RCURL {
 
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $2, $3}));
-            symboltable->print_all_scopes(log_file);
+            // symboltable->print_all_scopes(log_file);
             symboltable->exit_scope(log_file);
             
             SymbolInfo* lcurl = new SymbolInfo("","LCURL");
@@ -418,7 +436,7 @@ compound_statement : MLCURL statements RCURL {
 
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $2}));
-            symboltable->print_all_scopes(log_file);
+            // symboltable->print_all_scopes(log_file);
             symboltable->exit_scope(log_file);
 
             // $$->set_start_line($1->get_start_line());
@@ -432,7 +450,7 @@ compound_statement : MLCURL statements RCURL {
 
     //         $$ = new SymbolInfo("","compound_statement");
     //         $$->set_name(stringconcat({$1,$3}));
-    //         symboltable->print_all_scopes(log_file);
+    //         // symboltable->print_all_scopes(log_file);
     //         symboltable->exit_scope(log_file);
     // }
     ;
@@ -493,7 +511,7 @@ var_declaration : type_specifier declaration_list SEMICOLON {
                 }
             }
 
-            symboltable->print_all_scopes();
+            // symboltable->print_all_scopes();
         }
         | type_specifier error SEMICOLON {
             $$ = new SymbolInfo("","var_declaration");
@@ -513,7 +531,7 @@ var_declaration : type_specifier declaration_list SEMICOLON {
                 }
 
             }
-            symboltable->print_all_scopes();
+            // symboltable->print_all_scopes();
         }
     ;
 
@@ -704,8 +722,9 @@ statement : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($5->get_end_line());
             $$->add_child({$1, $2, $3, $4, $5});
-        }
-        | IF LPAREN expression RPAREN statement ELSE statement %prec ELSE{
+        }  // less precedence
+
+        | IF LPAREN expression RPAREN statement ELSE statement %prec ELSE {
             /* conflict */
             write_to_log("statement", "IF LPAREN expression RPAREN statement ELSE statement");
             //write_to_console("statement", "IF LPAREN expression RPAREN statement ELSE statement");
@@ -1341,7 +1360,7 @@ int main(int argc, char* argv[]){
     }
 
     log_file.open("log.txt");
-    // parse_file.open("parse.txt");
+    parse_file.open("parse.txt");
     error_file.open("error.txt");
 
     yyin = file;

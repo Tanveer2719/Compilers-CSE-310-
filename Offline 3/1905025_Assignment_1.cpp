@@ -14,7 +14,7 @@ class SymbolInfo{
     vector<SymbolInfo*> child_list;
     int start_line = 0;
     int end_line = 0;
-    bool is_leaf = false;
+    bool leaf = false;
 public:
 
     // default constructor
@@ -49,7 +49,7 @@ public:
         this->next = symbolInfo->get_next();
         this->start_line = symbolInfo->get_start_line();
         this->end_line = symbolInfo->get_end_line();
-        this->is_leaf = symbolInfo->get_is_leaf();
+        this->leaf = symbolInfo->is_leaf();
         this->child_list = symbolInfo->get_child_list();
     }
 
@@ -108,8 +108,8 @@ public:
     int get_end_line(){
         return end_line;
     }
-    bool get_is_leaf(){
-        return is_leaf;
+    bool is_leaf(){
+        return leaf;
     }
 
 
@@ -152,8 +152,8 @@ public:
     void set_end_line(int x){
         end_line = x;
     }
-    bool set_is_leaf(){
-        is_leaf = true;
+    bool set_leaf(){
+        leaf = true;
     }
     void add_child(vector<SymbolInfo*> symbolInfoList){
         for(auto x: symbolInfoList)

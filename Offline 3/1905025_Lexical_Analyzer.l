@@ -52,8 +52,10 @@ WHITESPACE [ \t\r\v\f]+
 
 
 %%
+    /** SymbolInfo(string name, string type, string specifier) **/
 
 "int" {
+        
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
     yylval.symbolInfo = new SymbolInfo(yytext, "TYPE_SPECIFIER", "INT");
     return INT;
