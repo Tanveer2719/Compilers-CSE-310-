@@ -124,13 +124,31 @@
         for(int x= 0;x<depth;x++){
             s+=" ";
         }
+<<<<<<< HEAD
          s = s + symbolInfo->get_type() + " : ";
+=======
+        s = s + symbolInfo->get_type() + " : ";
+
+        if(symbolInfo->is_leaf()){
+            s = s+ symbolInfo->get_name() +"\t<Line: " + to_string(symbolInfo->get_start_line()) +">\n";
+            // cout<<s;
+            parse_file<<s;
+            return;
+        }
+
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
         auto child_list = symbolInfo->get_child_list();
         for(SymbolInfo* x: child_list){
             s = s+ x->get_type() + " "; 
         }
+<<<<<<< HEAD
         s+="\n";
         parse_file<<s;
+=======
+        s = s + "\t<Line: " + to_string(child_list[0]->get_start_line()) + "-" + to_string(child_list[child_list.size()-1]->get_end_line()) +">\n";
+        parse_file<<s;
+        // cout<<s;
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
         for(auto x: child_list){
             print_parse_tree(x, depth+1);
         }
@@ -148,7 +166,7 @@
 }
 
 %token<symbolInfo> IF RPAREN LCURL PRINTLN RSQUARE COMMA SEMICOLON RCURL LSQUARE INCOP RELOP NOT LPAREN ASSIGNOP LOGICOP BITOP FOR DO INT FLOAT VOID SWITCH ADDOP DEFAULT ELSE WHILE BREAK CHAR DOUBLE DECOP RETURN CASE CONTINUE CONST_CHAR CONST_INT CONST_FLOAT PRINT ID MULOP THEN
-%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list MLCURL declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement
+%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement
 
 // PRECEDENCE DECLARATION
 %left ADDOP MULOP
@@ -413,11 +431,12 @@ parameter_list : parameter_list COMMA type_specifier ID {
         }
         ;
 
-compound_statement : MLCURL statements RCURL {
+compound_statement : LCURL modified_lcurl statements RCURL {
             write_to_log("compound_statement", "LCURL statements RCURL");
             //write_to_console("compound_statement", "LCURL statements RCURL");
 
             $$ = new SymbolInfo("","compound_statement");
+<<<<<<< HEAD
             $$->set_name(stringconcat({$1, $2, $3}));
             // symboltable->print_all_scopes(log_file);
             symboltable->exit_scope(log_file);
@@ -425,23 +444,35 @@ compound_statement : MLCURL statements RCURL {
             SymbolInfo* lcurl = new SymbolInfo("","LCURL");
             lcurl->set_start_line($1->get_start_line());
             lcurl->set_end_line($1->get_end_line());
+=======
+            $$->set_name(stringconcat({$1, $3, $4}));
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
 
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($3->get_end_line());
-            $$->add_child({lcurl, $2, $3 });
+            $$->set_end_line($4->get_end_line());
+            $$->add_child({$1,$3,$4});
+
+            symboltable->exit_scope(log_file);
+            
         }
-        | MLCURL RCURL {
+        | LCURL modified_lcurl RCURL {
             write_to_log("compound_statement", "LCURL RCURL");
             //write_to_console("compound_statement", "LCURL RCURL");
 
             $$ = new SymbolInfo("","compound_statement");
+<<<<<<< HEAD
             $$->set_name(stringconcat({$1, $2}));
             // symboltable->print_all_scopes(log_file);
             symboltable->exit_scope(log_file);
+=======
+            $$->set_name(stringconcat({$1, $3}));
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
 
-            // $$->set_start_line($1->get_start_line());
-            // $$->set_end_line($2->get_end_line());
-            // $$->add_child({$1, $2});
+            $$->set_start_line($1->get_start_line());
+            $$->set_end_line($3->get_end_line());
+            $$->add_child({$1,$3});
+
+            symboltable->exit_scope(log_file);
         }
     //     | MLCURL error RCURL {
     //         write_to_log("compound_statement", "LCURL statements RCURL");
@@ -455,12 +486,7 @@ compound_statement : MLCURL statements RCURL {
     // }
     ;
 
-MLCURL : LCURL {
-            $$ = $1;
-            $$->set_start_line($1->get_start_line());
-            $$->set_end_line($1->get_end_line());
-            $$->add_child({$1 });
-
+modified_lcurl: {
             symboltable->enter_scope();
             // for any void type parameter set type = "error" 
             for(auto x : symbolInfoList->get_parameters()){
@@ -1138,6 +1164,7 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
+            // print_debug(1142, to_string($1->get_end_line()));
             $$->add_child({$1 });
 
     }
@@ -1156,7 +1183,8 @@ factor : variable {
             }
 
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($2->get_end_line());
+            $$->set_end_line($3->get_end_line());
+            // print_debug(1162, to_string($$->get_end_line()));
             $$->add_child({$1,$2,$3 });
         }
         | CONST_INT {
@@ -1169,6 +1197,7 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
+            // print_debug(1174, to_string($1->get_end_line()));
             $$->add_child({$1 });
         }
         | CONST_FLOAT {
@@ -1180,6 +1209,7 @@ factor : variable {
             $$->set_specifier("FLOAT");
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
+            // print_debug(1186, to_string($1->get_end_line()));
             $$->add_child({$1 });
         }
         | variable INCOP {
@@ -1195,6 +1225,7 @@ factor : variable {
             }
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
+            //  print_debug(1202, to_string($2->get_end_line()));
             $$->add_child({$1,$2 });
         }
         | variable DECOP {

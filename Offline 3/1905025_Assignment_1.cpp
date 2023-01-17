@@ -58,7 +58,11 @@ public:
         this->name = name;
         this->type = type;
         this->start_line = start;
+<<<<<<< HEAD
         this->end_line - start;
+=======
+        this->end_line = start;
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
         this->leaf = true;
     }
     SymbolInfo(string name, string type, string specifier, int start){
@@ -66,7 +70,11 @@ public:
         this->type = type;
         this->specifier = specifier;
         this->start_line = start;
+<<<<<<< HEAD
         this->end_line - start;
+=======
+        this->end_line = start;
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
         this->leaf = true;
     }
     
@@ -78,8 +86,20 @@ public:
             s = s + name + ", " + type + "> ";
             return s;
         }
+<<<<<<< HEAD
         else if(specifier.length()>0){
             s = s + name + ", " + type + ", " + specifier + "> ";
+=======
+        else if(type == "ID"){
+            if(is_array()){
+                s = s + name + ", ARRAY, " + specifier + "> ";
+            }
+            else if(is_function()){
+                s = s + name + ", FUNCTION, " + specifier + "> ";
+            }else{
+                s = s + name + ", " + specifier + "> ";
+            }
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
             return s;
         }
         else{
@@ -157,11 +177,11 @@ public:
         parameters.push_back(symbolInfo);
     }
     void set_function(){
-        this->type = "FUNCTION";
+        //this->type = "FUNCTION";
         function = true;
     }
     void set_array(){
-        this->type = "ARRAY";
+        //this->type = "ARRAY";
         array = true;
     }
     void set_start_line(int x){

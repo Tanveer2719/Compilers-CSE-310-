@@ -57,125 +57,209 @@ WHITESPACE [ \t\r\v\f]+
 "int" {
         
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "int", "INT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "INT", "INT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return INT;
 }
 
 "float" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "float", "FLOAT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "FLOAT", "FLOAT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return FLOAT;
 }
 
 "void" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "void", "VOID", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "VOID", "VOID",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return VOID;
 }
 
 "double" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "double", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "DOUBLE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return DOUBLE;
 }
 
 "if" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "if", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "IF",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return IF;
 }
 "else" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "else", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "ELSE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return ELSE;
 }
 
 "for" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "for", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "FOR",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return FOR;
 }
 
 "do" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "do", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "DO",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return DO;
 }
 "while" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "while", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "WHILE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return WHILE;
 }
 
 "continue" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "continue", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CONTINUE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CONTINUE;
 }
 
 "case" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "case", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CASE",total_line_count );
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CASE;
 }
 
 "return" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "return", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "RETURN",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return RETURN;
 }
 
 "char" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "char", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CHAR",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CHAR;
 
 }
 
 "default" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "default", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "DEFAULT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return DEFAULT;
 
 }
 "switch" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "switch", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "SWITCH",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return SWITCH;
 
 }
 
 "break" {
     log_file<<"Line# "<<total_line_count<<": Token <"<<upper(yytext)<<"> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, "break", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "BREAK",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return BREAK;
 
 }
 
 [_A-Za-z][A-Za-z0-9_]* {
     log_file<<"Line# "<<total_line_count<<": Token <ID> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "ID",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return ID;  
 }
 
 {CONST_INT} {
     log_file<<"Line# "<<total_line_count<<": Token <CONST_INT> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, "INT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CONST_INT", "INT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CONST_INT;
 }
 {CONST_FLOAT} {
     log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, "FLOAT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CONST_FLOAT;
 }
 {CONST_EXPONENT} {
     log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, "FLOAT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CONST_FLOAT;
 }
 {NUMBER} {
     log_file<<"Line# "<<total_line_count<<": Token <CONST_FLOAT> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, "FLOAT", total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "CONST_FLOAT", "FLOAT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return CONST_FLOAT;
 }
 
@@ -196,88 +280,156 @@ WHITESPACE [ \t\r\v\f]+
 
 "+"|"-" {
     log_file<<"Line# "<<total_line_count<<": Token <ADDOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "ADDOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return ADDOP;
 }
 "*"|"/"|"%" {
     log_file<<"Line# "<<total_line_count<<": Token <MULOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "MULOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return MULOP;
 }
 "++" {
     log_file<<"Line# "<<total_line_count<<": Token <INCOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "INCOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return INCOP;
 }
 "--" {
     log_file<<"Line# "<<total_line_count<<": Token <DECOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "DECOP", total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return DECOP;
 }
 "<"|"<="|">"|">="|"=="|"!=" {
     log_file<<"Line# "<<total_line_count<<": Token <RELOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "RELOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return RELOP;
 }
 "=" { 
     log_file<<"Line# "<<total_line_count<<": Token <ASSIGNOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "ASSIGNOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return ASSIGNOP;
 }
 "&&"|"||" {
     log_file<<"Line# "<<total_line_count<<": Token <LOGICOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "LOGICOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return LOGICOP;
 }
 "&"|"|"|"^"|"<<"|">>" {
     log_file<<"Line# "<<total_line_count<<": Token <BITOP> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "BITOP",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return BITOP;
 }
 "!" {
     log_file<<"Line# "<<total_line_count<<": Token <NOT> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "NOT",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return NOT;
 }
 "(" {
     log_file<<"Line# "<<total_line_count<<": Token <LPAREN> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "LPAREN",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return LPAREN;
 }
 ")" {
     log_file<<"Line# "<<total_line_count<<": Token <RPAREN> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "RPAREN",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return RPAREN;
 }
 "{" {
     log_file<<"Line# "<<total_line_count<<": Token <LCURL> Lexeme "<<yytext<<" found\n";
     // symbolTable.enter_scope();
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext , total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "LCURL",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return LCURL;
 }
 "}" {
     log_file<<"Line# "<<total_line_count<<": Token <RCURL> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "RCURL",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return RCURL;
 }
 "[" {
     log_file<<"Line# "<<total_line_count<<": Token <LSQUARE> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext,yytext , total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "LSQUARE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return LSQUARE;
 }
 "]" {  
     log_file<<"Line# "<<total_line_count<<": Token <RSQUARE> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext , total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "RSQUARE",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return RSQUARE;
 }
 "," { 
     log_file<<"Line# "<<total_line_count<<": Token <COMMA> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext,yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "COMMA",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return COMMA;
 }
 ";" { 
     log_file<<"Line# "<<total_line_count<<": Token <SEMICOLON> Lexeme "<<yytext<<" found\n";
+<<<<<<< HEAD
     yylval.symbolInfo = new SymbolInfo(yytext, yytext, total_line_count);
+=======
+    yylval.symbolInfo = new SymbolInfo(yytext, "SEMICOLON",total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
     return SEMICOLON;
 }
 
@@ -401,7 +553,11 @@ WHITESPACE [ \t\r\v\f]+
     else if(c_count == 1){
         
         log_file<<"Line# "<<total_line_count<<": Token <CONST_CHAR> Lexeme "<<character<<" found\n";
+<<<<<<< HEAD
         yylval.symbolInfo = new SymbolInfo(token_character, token_character, total_line_count);
+=======
+        yylval.symbolInfo = new SymbolInfo(token_character, "CONST_CHAR" ,total_line_count);
+>>>>>>> cab2acd (ParsTree completed for test.c, noerror.c, sserror.c)
         return CONST_CHAR;
     }
     else{
