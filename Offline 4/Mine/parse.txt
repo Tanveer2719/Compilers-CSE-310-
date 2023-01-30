@@ -1,0 +1,38 @@
+start : program 	<Line: 1-7>
+ program : program unit 	<Line: 1-7>
+  program : unit 	<Line: 1-1>
+   unit : var_declaration 	<Line: 1-1>
+    var_declaration : type_specifier declaration_list SEMICOLON 	<Line: 1-1>
+     type_specifier : INT 	<Line: 1-1>
+      INT : int	<Line: 1>
+     declaration_list : declaration_list COMMA ID 	<Line: 1-1>
+      declaration_list : ID 	<Line: 1-1>
+       ID : i	<Line: 1>
+      COMMA : ,	<Line: 1>
+      ID : a	<Line: 1>
+     SEMICOLON : ;	<Line: 1>
+  unit : func_definition 	<Line: 2-7>
+   func_definition : type_specifier ID LPAREN RPAREN compound_statement 	<Line: 2-7>
+    type_specifier : INT 	<Line: 2-2>
+     INT : int	<Line: 2>
+    ID : main	<Line: 2>
+    LPAREN : (	<Line: 2>
+    RPAREN : )	<Line: 2>
+    compound_statement : LCURL statements RCURL 	<Line: 2-7>
+     LCURL : {	<Line: 2>
+     statements : statement 	<Line: 4-4>
+      statement : expression_statement 	<Line: 4-4>
+       expression_statement : expression SEMICOLON 	<Line: 4-4>
+        expression : variable ASSIGNOP logic_expression 	<Line: 4-4>
+         variable : ID 	<Line: 4-4>
+          ID : a	<Line: 4>
+         ASSIGNOP : =	<Line: 4>
+         logic_expression : rel_expression 	<Line: 4-4>
+          rel_expression : simple_expression 	<Line: 4-4>
+           simple_expression : term 	<Line: 4-4>
+            term : unary_expression 	<Line: 4-4>
+             unary_expression : factor 	<Line: 4-4>
+              factor : CONST_INT 	<Line: 4-4>
+               CONST_INT : 0	<Line: 4>
+        SEMICOLON : ;	<Line: 4>
+     RCURL : }	<Line: 7>
