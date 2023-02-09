@@ -44,7 +44,7 @@
     // insert new label
     string new_label(){
         total_label_count ++;
-        string s = "label " + to_string(total_label_count);
+        string s = "label_" + to_string(total_label_count);
         return s;
     }
 
@@ -1423,7 +1423,9 @@ void open_assembly_file(){
     assembly_code<<".MODEL SMALL\n";
     assembly_code<<".STACK 500H\n";
     assembly_code<<".DATA\n";
-    total_line_in_assembly += 3;
+    assembly_code<<"\tCR EQU 0DH\n";
+    assembly_code<<"\tNL EQU 0AH\n";
+    total_line_in_assembly += 5;
     end_line_of_data_segment = total_line_in_assembly;
 
     // cout<<"end line of data segment = "<<end_line_of_data_segment<<endl;
@@ -1514,7 +1516,7 @@ void print_number(){
     */
     string code;
     code = "\n\tPRINT_NUMBER PROC\n\t\tPUSH CX\n\t\tPUSH BX\n\t\tPUSH DX\n\t\tPUSH AX\n\t\tMOV CX, 0\n\t\tMOV DX,0";
-    code += "\n\n\t\tEXTRACT: \n\t\t\tCMP AX, O\n\t\t\tJE SHOW\n\t\t\tMOV BX, 10\n\t\t\tDIV BX\n\t\t\tPUSH DX\n\t\t\tXOR DX,DX\n\t\t\tINC CX\n\t\tJMP EXTRACT";
+    code += "\n\n\t\tEXTRACT: \n\t\t\tCMP AX, 0\n\t\t\tJE SHOW\n\t\t\tMOV BX, 10\n\t\t\tDIV BX\n\t\t\tPUSH DX\n\t\t\tXOR DX,DX\n\t\t\tINC CX\n\t\tJMP EXTRACT";
     code += "\n\n\t\tSHOW: \n\t\t\tCMP CX, 0\n\t\t\tJE E\n\t\t\tPOP DX\n\t\t\tADD DX,48\n\t\t\tMOV AH,2\n\t\t\tINT 21H\n\t\t\tDEC CX\n\t\tJMP SHOW";
     code += "\n\n\t\tE: \n\t\t\tPOP AX\n\t\t\tPOP DX\n\t\t\tPOP BX\n\t\t\tPOP CX\n\t\tRET\n\tPRINT_NUMBER ENDP\n";
     

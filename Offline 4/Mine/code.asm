@@ -1,6 +1,8 @@
 .MODEL SMALL
 .STACK 500H
 .DATA
+	CR EQU 0DH
+	NL EQU 0AH
 	i DW ? 	;global variable i declared
 	j DW ? 	;global variable j declared
 
@@ -30,7 +32,7 @@
 		MOV DX,0
 
 		EXTRACT: 
-			CMP AX, O
+			CMP AX, 0
 			JE SHOW
 			MOV BX, 10
 			DIV BX
@@ -69,13 +71,13 @@
 		SUB SP, 2  	;variable n declared 
 		SUB SP, 2  	;variable o declared 
 		SUB SP, 2  	;variable p declared 
-	label 1: 
+	label_1: 
 		PUSH AX
 		MOV AX, 1
 		MOV i, AX 
 		POP AX
 
-	label 2:
+	label_2:
 		PUSH AX
 		MOV AX, i
 		CALL PRINT_NUMBER
