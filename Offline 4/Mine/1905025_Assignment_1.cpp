@@ -16,12 +16,8 @@ class SymbolInfo{
     int start_line = 0;
     int end_line = 0;
     bool leaf = false;
+    int stack_offset = -1;
 public:
-
-    string code = "";
-    string var_name = "";
-    int stack_pos = 0;
-
 
     // default constructor
     SymbolInfo(){
@@ -86,12 +82,12 @@ public:
         }
         else if(type == "ID"){
             if(is_array()){
-                s = s + name + ", ARRAY, " + specifier + "> ";
+                s = s + name + ", ARRAY, " + specifier + ", " +to_string(stack_offset) + "> ";
             }
             else if(is_function()){
                 s = s + name + ", FUNCTION, " + specifier + "> ";
             }else{
-                s = s + name + ", " + specifier + "> ";
+                s = s + name + ", " + specifier + ", " + to_string(stack_offset) + "> ";
             }
             return s;
         }
@@ -145,6 +141,10 @@ public:
     int get_size(){
         return size;
     }
+    int get_stack_offset(){
+        return stack_offset;
+    }
+
 
 
     //setters
@@ -196,11 +196,15 @@ public:
         for(auto x: symbolInfoList)
             child_list.push_back(x);
     }
+    void set_stack_offset(int i){
+        stack_offset = i;
+    }
 
 };
 
 class ScopeTable{
     
+    SymbolInfo* tempList = NULL;
     SymbolInfo* list;              // we need to maintain the available symbolInfo objects in the current scope
     ScopeTable* parent_scope ;     // to find the parent of which the current scope is a part of
     int id;                      // fpr tracking the scope
@@ -285,23 +289,25 @@ public:
     // insertion
     bool insert(string name, string type){
         int index = get_bucket(name);
+
+        SymbolInfo *symbolInfo = new SymbolInfo(name, type);
         
         // if there is no symbolinfo object present
         if(list[index].get_name() ==""){
-            list[index] = SymbolInfo(name, type);
+            list[index] = symbolInfo;
             // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<1<<"\n";
             return true;
         }
 
-        SymbolInfo* symbolInfo = look_up(name, 0);
-        if(! symbolInfo){
+        SymbolInfo* found = look_up(name, 0);
+        if(! found){
             SymbolInfo* temp = list[index].get_current();
             int i = 1;      // for counting the position of insertion
             while(temp->get_next()){
                 temp = temp->get_next();
                 i++; 
             }
-            temp->set_next(new SymbolInfo(name, type));
+            temp->set_next(symbolInfo);
             
             // write to file
             // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
@@ -319,8 +325,9 @@ public:
         
         // if there is no symbolinfo object present
         if(list[index].get_name() ==""){
-            list[index] = SymbolInfo(symbolInfo);
+            list[index] = symbolInfo;
             // cout<<"\tInserted in ScopeTable# "<<id<<(symbolInfo->toString())<<"\n";
+           
             return true;
         }
 
@@ -332,9 +339,7 @@ public:
                 temp = temp->get_next();
                 i++; 
             }
-            temp->set_next(new SymbolInfo(symbolInfo));
-            
-            //cout<<"\tInserted in ScopeTable# "<<id<<(symbolInfo->toString())<<"\n";
+            temp->set_next(symbolInfo);
 
             return true;
         }else{
@@ -346,26 +351,24 @@ public:
 
     bool insert(string name, string  type, string type_specifier){
         int index = get_bucket(name);
+        SymbolInfo *symbolInfo = new SymbolInfo(name, type, type_specifier);
         
         // if there is no symbolinfo object present
         if(list[index].get_name() ==""){
-            list[index] = SymbolInfo(name, type, type_specifier);
-            // // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<1<<"\n";
+            list[index] = symbolInfo;
+            
             return true;
         }
 
-        SymbolInfo* symbolInfo = look_up(name, 0);
-        if(! symbolInfo){
+        SymbolInfo* found = look_up(name, 0);
+        if(! found){
             SymbolInfo* temp = list[index].get_current();
             int i = 1;      // for counting the position of insertion
             while(temp->get_next()){
                 temp = temp->get_next();
                 i++; 
             }
-            temp->set_next(new SymbolInfo(name, type, type_specifier));
-            
-            // write to file
-            // // cout<<"\tInserted in ScopeTable# "<<id<<" at position "<<(index+1)<<", "<<(i+1)<<"\n";
+            temp->set_next(symbolInfo);
 
             return true;
         }else{
@@ -463,6 +466,57 @@ public:
             }
         }
     }
+
+    void exit(ostream &assembly_file){
+        int x = 0;
+        for(int i = 0;i<MAX_SIZE; i++){
+            
+            SymbolInfo* temp = list[i].get_current();
+
+            if(temp->get_name()==""){
+                // cout<<temp->get_name()<<endl;
+                continue;
+            }else{
+                while(temp != nullptr){
+                    if(!temp->is_array()){
+                       x += 2;
+                    }else{
+                        x += temp->get_size()*2;
+                    }
+                    temp = temp->get_next();
+                }
+            }
+        }
+
+        if(x>0){
+            assembly_file<<"\tADD SP, "<<to_string(x)<<"\n";
+        }
+        
+    }
+
+    int get_total_variables(){
+        int x = 0;
+        for(int i = 0;i<MAX_SIZE; i++){
+            
+            SymbolInfo* temp = list[i].get_current();
+
+            if(temp->get_name()==""){
+                // cout<<temp->get_name()<<endl;
+                continue;
+            }else{
+                while(temp != nullptr){
+                    if(!temp->is_array()){
+                       x ++;
+                    }else{
+                        x += temp->get_size();
+                    }
+                    temp = temp->get_next();
+                }
+            }
+        }
+        return x;
+    }
+
 };
 
 class SymbolTable{
@@ -499,7 +553,7 @@ public:
         // // cout<<"\tScopeTable# "<<current_scope->get_id()<<" created\n";
 
     }
-    void exit_scope(ostream &log_file){
+    void exit_scope(ostream &assembly_file){
         int x = current_scope->get_id();
         
         if( x == 1){
@@ -507,11 +561,21 @@ public:
             // print_all_scopes(log_file);
             return;
         }
-        
-        current_scope = current_scope->get_parent();
-        // print_all_scopes(log_file);
-        // // cout<<"\tScopeTable# "<<x<<" removed\n";   
+        current_scope->exit(assembly_file);
+        current_scope = current_scope->get_parent();   
     }
+
+    
+    void exit_scope(){
+        int x = current_scope->get_id();
+        if( x == 1){
+            // // cout<<"\tScopeTable# 1 is asking to be removed\n";
+            // print_all_scopes(log_file);
+            return;
+        }
+        current_scope = current_scope->get_parent();   
+    }
+
 
     bool insert(string name, string type){
         // // cout<<"inserted in current scope successfully "<<endl;
@@ -578,6 +642,15 @@ public:
             // // cout<<"\tScopeTable# "<<current_scope->get_id()<<" removed\n";
             current_scope = current_scope->get_parent();
         }
+    }
+
+    int total_variables_in_current_scope(){
+        return current_scope->get_total_variables();
+    }
+
+    void set_stack_offset(string name, int x = -1){
+        SymbolInfo* tmp = look_up(name);
+        tmp->set_stack_offset(x);
     }
 
 

@@ -1,170 +1,139 @@
 %{
     #include<bits/stdc++.h>
-    #include "1905025_Assignment_1.cpp"
+    #include "FunctionHelper.h"
+    #include "FileHelper.h"
     
     using namespace std;
+
+    SymbolTable* symboltable =  new SymbolTable(11);    // to store the ID and others for future use
+    SymbolInfo* symbolInfoList = new SymbolInfo();      // for parameter list and declaration list purpose
+
+    // file operations  
+    ofstream parse_file;            // to print the parse tree
+    ofstream error_file;            // to print the errors
+    ofstream assembly_code;         // to print the assembly code
 
     // external variables from lexical analyzer
     extern int total_line_count;
     extern int e_count;
     extern FILE *yyin;
-    
-    // file operations
-    ofstream log_file;
-    ofstream parse_file;
-    ofstream error_file;
-    ofstream assembly_code;
 
-    // check if the main is available or not
-    bool has_main = false;
 
-    // if a function is found then it will be false
-    bool is_global = true;
-
-    // for the global variables
-    vector<string>global_vars;
-
-   
-
-    SymbolTable* symboltable =  new SymbolTable(11);
-    SymbolInfo* symbolInfoList = new SymbolInfo();      // for parameter list and declaration list purpose
-
-    void yyerror(string s){}
-
-    // label counter
+    int total_line_in_assembly = 0;
+    int end_line_of_code_segment = 0;
+    int end_line_of_data_segment = 0;
     int total_label_count = 0;
+
+
+    int total_stack_size_used_in_function = 0;
+    int stack_offset = 0;
+
+    
+    /*
+        return total no of line in a string
+    */
+    int line_count_in_string(string s){
+        int cnt = 0;
+        for(int i = 0;i<s.length(); i++){
+            if(s[i] == '\n')
+                cnt++;
+        }
+        return cnt;
+    }
+
     // insert new label
     string new_label(){
         total_label_count ++;
-        string s = "label ";
-        s += to_string(total_label_count);
+        string s = "label " + to_string(total_label_count);
         return s;
     }
+
+    /*
+        Increase total line in assembly along with total line in code segment
+    */
+    void increase_code_segment(string txt){
+        int x = line_count_in_string(txt);
+        end_line_of_code_segment += (x+1);
+        total_line_in_assembly += (x+1);
+    }
     
-    string stringconcat(vector<SymbolInfo*> symbolInfoList){
-        string result = "";
-        for(auto x : symbolInfoList){
-            result += x->get_name();
-        }
-        return result;
+    void write_in_code_segment(string text){
+        write_to_file("code.asm", text,end_line_of_code_segment);
+        increase_code_segment(text);
     }
 
-    void write_error(string s){
-        e_count++;
-        error_file<<"Line# "<<total_line_count<<": "<<s<<"\n";
+    void increase_data_segment(string txt){
+        int x = line_count_in_string(txt);
+        end_line_of_data_segment += x;
+        end_line_of_code_segment += x;
+        total_line_in_assembly += x;
     }
 
-    bool isVoid(SymbolInfo* symbolInfo){
-        if(symbolInfo->get_specifier() == "VOID"){
-	        write_error("Void cannot be used in '"+ symbolInfo->get_name()+"'");
-            return true;
-        }
+    void write_in_data_segment(string text){
+        write_to_file("code.asm", text,end_line_of_data_segment);
+        increase_data_segment(text);
+    }
         
-        return false;
+    /*
+        move all from the data segment to the code segment
+    */
+    void declare_main(){
+        string text = "\t\tMOV AX, @DATA\n\t\tMOV DS, AX\n\t\tPUSH BP\n\t\tMOV BP, SP \n\n";
+        write("code.asm", text, true);
+        increase_code_segment(text);
     }
 
-    void print_debug(int line, string message){
-        cout<<"AT line no : "<<line<<" of VS code and  line no : "<<total_line_count<<" of program : "<<message<<endl;
+    /*
+        end the main procedure
+    */
+    void end_main(){
+        string text = "\t\tMOV AX, 4CH\n\t\tINT 21H\n";
+        write("code.asm", text, true);
+        increase_code_segment(text);
+
     }
 
-    // inserts the function to the current scope
-    void insert_function(SymbolInfo* function_name, SymbolInfo* type_specifier){
-        function_name->set_specifier(type_specifier->get_specifier());      // sets the return type of the function
-        function_name->set_parameters(symbolInfoList->get_parameters());    // sets the parameters of the function
-        function_name->set_function();      
-        bool flag = symboltable->insert(function_name);
-        if(flag) return;    // if insert successful then return
+    void start_procedure(string id){
+        stack_offset = 0;
+        string code = "\t" + id + " PROC\n";
+        write("code.asm", code, true);
+        increase_code_segment(code);
 
-        // if there is a previous occurence of the function
-        SymbolInfo* prev = symboltable->look_up(function_name->get_name());
-        
-        // check possible error scopes
-        if(! prev-> is_function()){ 
-            /*
-                int a();
-                int a = 8;
-            */
-            write_error("'" + prev->get_name() + "' redeclared as different kind of symbol");
-
+        if(id == "main"){
+            declare_main();
         }else{
-            if(prev->get_specifier() != function_name->get_specifier()){
-                write_error("Conflicting types for '"+ prev->get_name()+"'");
-            }
-
-            else if(prev->get_parameters().size() !=  function_name->get_parameters().size()){
-                write_error("Conflicting types for '"+ prev->get_name()+"'");
-
-            }else{
-                auto prevArgs = prev->get_parameters();         // the previously declared function's parameters 
-                auto curArgs = function_name->get_parameters(); // now defined function's pram
-
-                for(int i = 0;i<prevArgs.size(); i++){
-                    if(prevArgs[i]->get_specifier() != curArgs[i]->get_specifier()){
-                        write_error("Type mismatch for argument "+to_string(i+1)+" of '"+ prev->get_name()+"'");
-                    }
-                }
-            }
+            code ="\t\t;starting procedure " + id + "\n";
+            code += "\t\tPUSH BP\t;save BP\n";
+            code += "\t\tMOV BP, SP\t;make BP = SP\n";
+            write("code.asm", code, true);
+            increase_code_segment(code); 
         }
+
     }
 
-    void write_to_log(string left, string right){
-        // log_file<<left<<" : "<<right<<"\n"; 
+    void end_procedure(SymbolInfo* function, int total_params){
+        string code = "";
+        if(total_params>0){
+            code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n"; 
+        }
+        code +="\t\tPOP BP\t; restoring BP";
+        write_in_code_segment(code);
+
+        if(function->get_name() == "main"){
+            end_main();
+        }
+        else if(function->get_specifier() == "VOID"){
+            code = "\t\tRET\n"; 
+            write_in_code_segment(code);
+        }
+
+        write("code.asm", "\t" + function->get_name()+ + " ENDP\n", true);
+        total_line_in_assembly += 1; 
+
     }
 
-    void write_to_console(string s, string t){
-        cout<<"Line- "<<total_line_count<<" rule: "<<s<<" : "<<t<<endl;
-    }
 
-    string type_casting(SymbolInfo* s1, SymbolInfo* s2) {
-        string l = s1->get_specifier();
-        string r = s2->get_specifier();
-
-        if (l == "error" || r == "error"){
-            return "error";
-        }
-        else if (l == "VOID" || r == "VOID"){
-            return "error";
-        }
-        else if(l == "INT" && r == "FLOAT"){
-            write_error("Warning: possible loss of data in assignment of FLOAT to INT ");
-            return "INT";
-        } 
-        else if(l == "FLOAT" && r == "FLOAT"){
-            return "FLOAT";
-        }
-        else {
-            return "INT";
-        }
-    }
-
-    void print_parse_tree(SymbolInfo* symbolInfo, int depth){
-        string s ="";
-        for(int x= 0;x<depth;x++){
-            s+=" ";
-        }
-        s = s + symbolInfo->get_type() + " : ";
-
-        if(symbolInfo->is_leaf()){
-            s = s+ symbolInfo->get_name() +"\t<Line: " + to_string(symbolInfo->get_start_line()) +">\n";
-            
-            parse_file<<s;
-            // cout<<s;
-            return;
-        }
-
-        auto child_list = symbolInfo->get_child_list();
-        for(SymbolInfo* x: child_list){
-            s = s+ x->get_type() + " "; 
-        }
-        s = s + "\t<Line: " + to_string(child_list[0]->get_start_line()) + "-" + to_string(child_list[child_list.size()-1]->get_end_line()) +">\n";
-        parse_file<<s;
-        // cout<<s;
-        for(auto x: child_list){
-            print_parse_tree(x, depth+1);
-        }
-        
-    }
-    
+    void yyerror(string s){}
     int yyparse(void);
     int yylex(void);
 
@@ -191,99 +160,6 @@ start : program {
             $$ = new SymbolInfo("","start");
             $$->set_name(stringconcat({$1}));
 
-            if(!has_main){
-                cout<<"There is no main function\n";
-            }
-            
-            
-            
-            // perform action only if error count  = 0
-            if(e_count == 0){
-           
-             /* .MODEL SMALL
-                .STACK 1000H
-                .DATA
-                    cr equ 0dh
-                    nl equ 0ah
-             all other global variables make them word type */
-                
-                assembly_code<<".MODEL SMALL\n.STACK 1000H\n.DATA\n\t\CR EQU ODH\n\tNL EQU 0AH\n" ;
-                for(auto var:global_vars)
-                    assembly_code<<'\t'<<var<<" DW 0\n";
-                
-                
-                // write procedure for newLine
-                /* NEWLINE PROC
-                    push ax
-                    push dx
-                    mov ah, 2
-                    mov dl, cr
-                    int 21h
-                    mov dl, nl
-                    int 21h
-                    pop dx
-                    pop ax
-                    ret
-                    NEW LINE ENDP */
-                assembly_code<<"\n.CODE\n\nNEWLINE PROC\n\tPUSH AX\n\tPUSH DX\n\tMOV AH, 2\n\tMOV DL,CR\n\tINT 21H\n\tMOV DL,NL\n\tINT 21H\n\tPOP DX\n\tPOP AX\n\tRET\nNEWLINE ENDP";
-
-                // procedure to print a number
-                /* PRINT PROC
-                    push cx
-                    push bx
-                    push dx
-                    push ax
-                    
-                    ;INITIALIZE COUNT
-                    MOV CX, 0
-                    MOV DX, 0
-                    
-                    EXTRACT:
-                        CMP AX, 0
-                        JE SHOW
-                        
-                        MOV BX, 10
-                        
-                        DIV BX      ; AX/BX
-                        
-                        PUSH DX     ;PUSH THE REMAINDER IN STACK
-                        
-                        XOR DX, DX  ;CLEAR THE REMAINDER
-                        INC CX      ;INCREASE COUNT
-                        
-                        JMP EXTRACT
-            
-        
-                    SHOW:
-                        CMP CX, 0
-                        JE E       ; IF COUNT = 0 RETURN
-                        
-                        POP DX
-                        ADD DX, 48    ;POP DX AND ADD 48 WITH DX TO MAKE IT ASCII
-                        
-                        MOV AH, 2
-                        INT 21H
-                        DEC CX
-                        JMP SHOW
-                        
-                    E: 
-                        POP AX
-                        POP DX
-                        POP BX
-                        POP CX
-                        
-                        RET   
-                PRINT ENDP */
-                assembly_code<<"\n\nPRINT_NUMBER PROC\n\t\PUSH CX\n\t\PUSH BX\n\t\PUSH DX\n\t\PUSH AX\n\t\MOV CX, 0\n\t\MOV DX,0";
-                assembly_code<<"\n\n\tEXTRACT: \n\t\tCMP AX, O\n\t\tJE SHOW\n\t\tMOV BX, 10\n\t\tDIV BX\n\t\tPUSH DX\n\t\tXOR DX,DX\n\t\tINC CX\n\tJMP EXTRACT";
-                assembly_code<<"\n\n\tSHOW: \n\t\tCMP CX, 0\n\t\tJE E\n\t\tPOP DX\n\t\tADD DX,48\n\t\tMOV AH,2\n\t\tINT 21H\n\t\tDEC CX\n\tJMP SHOW";
-                assembly_code<<"\n\n\tE: \n\t\tPOP AX\n\t\tPOP DX\n\t\tPOP BX\n\t\tPOP CX\n\tRET\n\nPRINT_NUMBER ENDP";
-
-                /* assembly_code<<$$->code<<"\n"; */
-                assembly_code<<"\nEND MAIN";
-            
-            }
-
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
@@ -301,9 +177,6 @@ program : program unit {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2});
-
-            $$->code += $1->code + "\n";
-            $$->code += $2->code + "\n";
             
         }
         | unit {
@@ -317,7 +190,6 @@ program : program unit {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
 
-            $$->code += $1->code + "\n";
             
     }
     ;
@@ -333,8 +205,6 @@ unit : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
-
-            $$->code += $1->code;
         
         }
         | func_declaration {
@@ -347,8 +217,6 @@ unit : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1 });
-
-            $$->code += $1->code;
         }
         | func_definition {
             // write_to_log("unit", "func_definition");
@@ -360,8 +228,6 @@ unit : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
-
-            $$->code += $1->code;
     } 
     ;
 
@@ -430,90 +296,32 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
 
 
 
-func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_function($2,$1);} compound_statement {  
+func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_function($2,$1);} {start_procedure($2->get_name());} compound_statement {  
             //write_to_console("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-            // symboltable->print_all_scopes();
             // write_to_log("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
 
             $$ = new SymbolInfo("", "func_definition");
-            $$->set_name(stringconcat({$1, $2, $3, $4, $5, $7}));
-            $$->add_child({$1, $2, $3, $4, $5, $7});
+            $$->set_name(stringconcat({$1, $2, $3, $4, $5, $8}));
             
-            $$->code += "\n\n"+$2->get_name()+" PROC\n";
-            
-            
-            // if inserted function is 'main' then make the boolean value true
-            if($2->get_name() == "main"){
-                has_main = true;
-                
-                // mov ax, @data
-                // mov ds, ax
-                $$->code += "\tMOV AX, @DATA\n";
-                $$->code += "\tMOV DS, AX\n";
-                $$->code += $4->code +"\n" + $7->code + "\n";
-                $$->code += "\t_exitLabel:\n";
-                // mov ah, 4ch
-                // int 21h
-                $$->code += "\t\tMOV AH, 4CH\n";
-                $$->code += "\t\tINT 21H\n";
+            end_procedure($2, total_stack_size_used_in_function);
 
-            }else{
-                $$->code += "\tPUSH BP\n\tMOV BP, SP\n";
-                $$->code += $4->code +"\n" + $7->code + "\n";
-                $$->code += "\t_exitLabel:\n";
-                $$->code += "\t\tADD SP, "+to_string(-$7->stack_pos)+"\n"; 
-                $$->code += "\t\tPOP BP\n";
-                // RET
-                $$->code += "\t\tRET\n";
-            }
-
-            $$->code += "\n" + $2->get_name() +" ENDP\n"; 
-
+            $$->add_child({$1, $2, $3, $4, $5, $8});
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($7->get_end_line());
+            $$->set_end_line($8->get_end_line());
         }
 
-        | type_specifier ID LPAREN RPAREN {insert_function($2,$1); }compound_statement {   
+        | type_specifier ID LPAREN RPAREN {insert_function($2,$1); } {start_procedure($2->get_name());}compound_statement {   
             // write_to_log("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
             //write_to_console("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
 
             $$ = new SymbolInfo("", "func_definition");
-            $$->set_name(stringconcat({$1, $2, $3, $4, $6}));
-            $$->add_child({$1, $2, $3, $4, $6});
+            $$->set_name(stringconcat({$1, $2, $3, $4, $7}));
 
+            end_procedure($2, total_stack_size_used_in_function);
 
-            $$->code += "\n\n"+$2->get_name()+" PROC\n";
-            
-            // if inserted function is 'main' then make the boolean value true
-            if($2->get_name() == "main"){
-                has_main = true;
-                
-                // mov ax, @data
-                // mov ds, ax
-                $$->code += "\tMOV AX, @DATA\n";
-                $$->code += "\tMOV DS, AX\n";
-                $$->code += $6->code + "\n";
-                $$->code += "\t_exitLabel:\n";
-                // mov ah, 4ch
-                // int 21h
-                $$->code += "\t\tMOV AH, 4CH\n";
-                $$->code += "\t\tINT 21H\n";
-
-            }else{
-                $$->code += "\tPUSH BP\n\tMOV BP, SP\n";
-                $$->code += $6->code + "\n";
-                $$->code += "\t_exitLabel:\n";
-                $$->code += "\t\tADD SP, "+to_string(-$6->stack_pos)+"\n"; 
-                $$->code += "\t\tPOP BP\n";
-                // RET
-                $$->code += "\t\tRET\n";
-            }
-
-            $$->code += "\n" + $2->get_name() +" ENDP\n"; 
-
-
+            $$->add_child({$1, $2, $3, $4, $7}); 
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($6->get_end_line());
+            $$->set_end_line($7->get_end_line());
     }
     
         | type_specifier ID LPAREN error RPAREN compound_statement {    
@@ -622,12 +430,13 @@ compound_statement : LCURL modified_lcurl statements RCURL {
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $3, $4}));
 
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+
+            symboltable->exit_scope();
+
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$3,$4});
-
-            // symboltable->print_all_scopes(log_file);
-            symboltable->exit_scope(log_file);
             
         }
         | LCURL modified_lcurl RCURL {
@@ -637,82 +446,96 @@ compound_statement : LCURL modified_lcurl statements RCURL {
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $3}));
 
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+
+            symboltable->exit_scope();
+
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
             $$->add_child({$1,$3});
             
-            // symboltable->print_all_scopes(log_file);
-            symboltable->exit_scope(log_file);
         }
     ;
 
 modified_lcurl: {
             symboltable->enter_scope();
+
             // for any void type parameter set type = "error" 
             for(auto x : symbolInfoList->get_parameters()){
                 if(x->get_name() == "") continue;
                 if(isVoid(x)){
+                    write_error("Void cannot be used in parameter list");
                     x->set_specifier("error");
+                    break;
                 }
 
                 bool flag = symboltable->insert(x);
                 if(!flag){
                     write_error("Redefinition of parameter '"+ x->get_name()+"'");
-                    // //write_to_console(374, "parameter_list error");
                     break;
                 }
-
+                
             }
             symbolInfoList->set_parameters({}); // after entering into scope table set the parameter list  = 0
     }
     ;
 
-
 var_declaration : type_specifier declaration_list SEMICOLON {
-            // write_to_log("var_declaration", "type_specifier declaration_list SEMICOLON");
-            //write_to_console("var_declaration", "type_specifier declaration_list SEMICOLON");
 
             $$ = new SymbolInfo("","var_declaration");
             $$->set_name(stringconcat({$1, $2, $3})); 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
-            $$->add_child({$1, $2, $3 });
+            $$->add_child({$1, $2, $3});
 
             if($1->get_specifier() == "VOID"){
                 for(auto x : $2->get_declarations())
                     write_error("Variable or field '" + x->get_name() + "' declared void");
             }else {
+                // not global
                 for(auto x : $2->get_declarations()){
                     x->set_specifier($1->get_specifier());
+
                     bool flag = symboltable->insert(x);
-                    if(! flag){
+                    
+                    if(! flag){     // if not inserted 
                         SymbolInfo *prev = symboltable->look_up(x->get_name());
                         if(prev->get_specifier() != x->get_specifier()){
                             write_error("Conflicting types for'" + x->get_name() + "'");
                         }else{
                             write_error("Redeclaration of'"+ x->get_name()+"'");
                         }
-                    }
-                    else if(symboltable->get_current_scope_id() == 1){
-                        /* If the variable is a global one then its scope table id = 1  and 
-                            for this we set it's stack position = 0 and 
-                            push the variable to the 'global_vars' vector 
-                         */
-                        x->stack_pos = 0;
-                        global_vars.push_back(x->get_name());
-                    }
-                    else{
-                        if(x->is_array()){
-                           $$->code += "\tSUB SP, "+to_string(2*x->get_size())+"\n"; 
-                        }
-                        else{
-                            $$->code += "\tSUB SP, 2\n";
-                        }
-                    }
-                }
-            }
+                    }else{  // if inserted
+                        if(symboltable->get_current_scope_id() != 1){
+                            if(! x->is_array()){
+                                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared ";
+                                write_in_code_segment(code);
+                            }
+                            else{
+                                int size = x->get_size();
+                                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared ";
+                                write_in_code_segment(code);
+                            } 
+                        }else{
+                            // if global variable
+                            if(! x->is_array()){
+                                string code = "\t" + x->get_name() + " DW ? \t;global variable "+x->get_name() +" declared\n";
+                                write_in_data_segment(code);
+                            }else{
+                                int size = x->get_size();
+                                string code = "\t" + x->get_name() + " DW "+to_string(size) +"DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
+                                write_in_data_segment(code);
+                            } 
+                            symboltable->set_stack_offset(x->get_name());   // set the global flag true;                 
 
-            // symboltable->print_all_scopes();
+                        }
+                    }
+
+                }
+                
+            }
+            cout<<"no error"<<endl;
+
         }
         | type_specifier error SEMICOLON {
             
@@ -735,7 +558,6 @@ var_declaration : type_specifier declaration_list SEMICOLON {
                 }
 
             }
-            // symboltable->print_all_scopes();
         }
     ;
 
@@ -777,9 +599,6 @@ type_specifier : INT {
 
 
 declaration_list :declaration_list COMMA ID {
-            // write_to_log("declaration_list","declaration_list COMMA ID");
-            //write_to_console("declaration_list","declaration_list COMMA ID");
-
             $$ = new SymbolInfo("", "declaration_list");
             $$->set_name(stringconcat({$1, $2, $3}));
             $$->set_declarations($1->get_declarations());
@@ -788,14 +607,13 @@ declaration_list :declaration_list COMMA ID {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1, $2, $3 });
 
+            
+
             // add the declarations to the symbolInfoList so that we can insert them to the symbol table if any error found
             symbolInfoList->set_declarations($1->get_declarations());
             symbolInfoList->add_declaration($3);
     }
         | declaration_list COMMA ID LSQUARE CONST_INT RSQUARE {
-            // write_to_log("declaration_list", "declaration_list COMMA ID LSQUARE CONST_INT RSQUARE");
-            //write_to_console("declaration_list","declaration_list COMMA ID");
-
             $$ = new SymbolInfo("", "declaration_list");
             $$->set_name(stringconcat({$1, $2, $3, $4, $5, $6}));
             $$->set_declarations($1->get_declarations());
@@ -814,8 +632,6 @@ declaration_list :declaration_list COMMA ID {
 
         }
         | ID {
-            // write_to_log("declaration_list", "ID");
-            //write_to_console("declaration_list", "ID");
 
             $$ = new SymbolInfo("", "declaration_list");
             $$->set_name(stringconcat({$1}));
@@ -826,10 +642,7 @@ declaration_list :declaration_list COMMA ID {
 
             symbolInfoList->add_declaration($1);
         }
-        | ID LSQUARE CONST_INT RSQUARE {
-            // write_to_log("declaration_list", "ID LSQUARE CONST_INT RSQUARE");
-            //write_to_console("declaration_list", "ID LSQUARE CONST_INT RSQUARE");
-            
+        | ID LSQUARE CONST_INT RSQUARE { 
             $$ = new SymbolInfo("", "declaration_list");
             $$->set_name(stringconcat({$1, $2, $3, $4}));
             $1->set_array();    // since it is a production for detecting array we shall set the array flag of symbolinfo on
@@ -846,9 +659,6 @@ declaration_list :declaration_list COMMA ID {
 
         }
         | ID error {
-            // write_to_log("declaration_list", "ID");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
-
             $$ = new SymbolInfo("", "declaration_list");
             $$->set_name(stringconcat({$1}));
             symbolInfoList->add_declaration($1);
@@ -961,18 +771,29 @@ statement : var_declaration {
 
         }
         | PRINTLN LPAREN ID RPAREN SEMICOLON {
-            // write_to_log("statement", "PRINTLN LPAREN ID RPAREN SEMICOLON");
-            //write_to_console("statement", "PRINTLN LPAREN ID RPAREN SEMICOLON");
+            string code = "\t" +new_label() + ":\n";
             
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1,$2,$3,$4,$5}));
-
-            if( !symboltable->look_up($3->get_name())){
-                write_error("Undeclared variable '"+ $3->get_name()+"'");
-            }
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($5->get_end_line());
             $$->add_child({$1,$2,$3,$4,$5});
+
+            SymbolInfo* prev = symboltable->look_up($3->get_name());
+            
+            if(!prev){
+                write_error("Undeclared variable '"+ $3->get_name()+"'");
+            }else{
+                code += "\t\tPUSH AX\n";
+                if(prev->get_stack_offset() == -1){
+                    code += "\t\tMOV AX, "+ prev->get_name()+"\n";
+                    code += "\t\tCALL PRINT_NUMBER\n";
+                    code += "\t\tCALL NEWLINE\n"; 
+                    code += "\t\tPOP AX\n";
+                    write_in_code_segment(code);
+                }
+            }
+              
         }
         | RETURN expression {isVoid($2);} SEMICOLON {
             // write_to_log("statement", "RETURN expression SEMICOLON");
@@ -1024,15 +845,11 @@ expression_statement : SEMICOLON {
 
 
 variable : ID {
-            // write_to_log("variable", "ID");
-            //write_to_console("variable", "ID");
             $$ = new SymbolInfo("","variable");
             $$->set_name(stringconcat({$1}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1 });
-
-            // print_debug(641, $1->get_name()+ " Id found");
 
             SymbolInfo* prevID = symboltable->look_up($1->get_name());
         
@@ -1044,16 +861,13 @@ variable : ID {
             }else if(prevID->is_array()){
                 write_error("Type mismatch for variable '"+  $1->get_name()+ "'");
             }else {
+                $$->set_stack_offset(prevID->get_stack_offset());
                 $$->set_specifier(prevID->get_specifier());
-
             }
     }
         | ID LSQUARE expression RSQUARE {
-            // write_to_log("variable", "ID LSQUARE expression RSQUARE");
-            //write_to_console("variable", "ID LSQUARE expression RSQUARE");
-
             $$ = new SymbolInfo("","variable");
-            $$->set_name(stringconcat({$1, $2, $3, $4}));
+            $$->set_name(stringconcat({$1}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2,$3,$4});
@@ -1072,6 +886,7 @@ variable : ID {
                 $$->set_specifier("error");
 
             }else {
+                $$->set_stack_offset(prev->get_stack_offset());
                 $$->set_specifier(prev->get_specifier());
             }
 
@@ -1082,10 +897,7 @@ variable : ID {
     ;
 
 
-expression : logic_expression {
-            // write_to_log("expression", "logic_expression");
-            //write_to_console("expression", "logic_expression");
-            
+expression : logic_expression {            
             $$ = new SymbolInfo("","expression");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -1094,8 +906,6 @@ expression : logic_expression {
             $$->add_child({$1 });
     }
         | variable ASSIGNOP logic_expression {
-            // write_to_log("expression", "variable ASSIGNOP logic_expression");
-            //write_to_console("expression", "variable ASSIGNOP logic_expression");
 
             $$ = new SymbolInfo("","expression");
             $$->set_name(stringconcat({$1,$2,$3}));
@@ -1109,8 +919,19 @@ expression : logic_expression {
             } else {
                 string type = type_casting($1, $3);
                 $$->set_specifier(type);
-                $$->code += $1->code + $3->code;
-                $$->code += "\tMOV "+$1->var_name+", CX\n";
+
+                string label = new_label();
+                if($1->get_stack_offset() == -1){
+                    if(! $1->is_array()){
+                        string code = "\t" + label + ": \n";
+                        code +="\t\tPUSH AX\n";
+                        code += "\t\tMOV AX, "+$3->get_name() + "\n";
+                        code += "\t\tMOV " + $1->get_name() + ", AX \n";
+                        code += "\t\tPOP AX\n";
+                        write_in_code_segment(code);
+                    }
+                    
+                }                
             }
 
             
@@ -1129,7 +950,6 @@ logic_expression : rel_expression {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1 });
 
-            $$->code +=$1->code; 
         }
         | rel_expression LOGICOP rel_expression {
             // write_to_log("logic_expression", "rel_expression LOGICOP rel_expression");
@@ -1169,7 +989,6 @@ rel_expression : simple_expression {
                 $$->set_array();
             }
 
-            $$->code +=$1->code; 
         }
         | simple_expression RELOP simple_expression {
             // write_to_log("rel_expression", "simple_expression RELOP simple_expression");
@@ -1208,7 +1027,6 @@ simple_expression : term {
                 $$->set_array();
             } 
 
-            $$->code +=$1->code;
         }
         | simple_expression ADDOP term {
             // write_to_log("simple_expression", "simple_expression ADDOP term");
@@ -1254,7 +1072,6 @@ term : unary_expression {
                 $$->set_array();
             }
 
-            $$->code +=$1->code; 
         }
         | term MULOP unary_expression {
             // write_to_log("term", "term MULOP unary_expression");
@@ -1348,7 +1165,6 @@ unary_expression : ADDOP unary_expression {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1 });
 
-            $$->code += $$->code;
             
         }
         
@@ -1370,9 +1186,6 @@ factor : variable {
             // print_debug(1142, to_string($1->get_end_line()));
             $$->add_child({$1 });
 
-            $$->code += $1->code;
-            $$->code += "\tMOV CX, "+$1->var_name+"\n";
-
     }
         | LPAREN expression RPAREN {
             // write_to_log("factor", "LPAREN expression RPAREN");
@@ -1388,7 +1201,6 @@ factor : variable {
                 $$->set_specifier($1->get_specifier());
             }
 
-            $$->code += $2->code;
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
@@ -1407,7 +1219,6 @@ factor : variable {
             $$->set_end_line($1->get_end_line());
             // print_debug(1174, to_string($1->get_end_line()));
             $$->add_child({$1 });
-            $$->code = "\tMOV CX, "+$1->get_name()+"\n";
         }
         | CONST_FLOAT {
             // write_to_log("factor", "CONST_FLOAT");
@@ -1420,7 +1231,6 @@ factor : variable {
             $$->set_end_line($1->get_end_line());
             // print_debug(1186, to_string($1->get_end_line()));
             $$->add_child({$1 });
-            $$->code = "\tMOV CX, "+$1->get_name()+"\n";
         }
         | variable INCOP {
             // write_to_log("factor", "variable INCOP");
@@ -1432,9 +1242,6 @@ factor : variable {
                 $$->set_specifier("error");
             } else{
                 $$->set_specifier($1->get_specifier());
-                $$->code += $1->code;
-                $$->code += "\tMOV CX, "+$1->var_name + "\n";
-                $$->code += "\tINC CX \n";
             }
 
             $$->set_start_line($1->get_start_line());
@@ -1452,9 +1259,6 @@ factor : variable {
                 $$->set_specifier("error");
             } else{
                 $$->set_specifier($1->get_specifier());
-                $$->code += $1->code;
-                $$->code += "\tMOV CX, "+$1->var_name+"\n";
-                $$->code += "\tDEC CX \n";
             }
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
@@ -1512,7 +1316,6 @@ factor : variable {
                             }
                         }
 
-                        // $$->code += $3->code + "\tCALL "+$1->get_name()
 
                     }
                 }
@@ -1609,6 +1412,134 @@ arguments : arguments COMMA logic_expression {
 
 %%
 
+
+void open_assembly_file(){
+    ofstream assembly_code;
+    assembly_code.open("code.asm");
+    if(!assembly_code.is_open()){
+        cout<<"Code.asm can not be opened in open_assembly_file\n";
+        return;
+    }
+    assembly_code<<".MODEL SMALL\n";
+    assembly_code<<".STACK 500H\n";
+    assembly_code<<".DATA\n";
+    total_line_in_assembly += 3;
+    end_line_of_data_segment = total_line_in_assembly;
+
+    // cout<<"end line of data segment = "<<end_line_of_data_segment<<endl;
+
+    
+    assembly_code<<".CODE\n";
+    end_line_of_code_segment = ++total_line_in_assembly;
+    // cout<<"end line of code segment = "<<end_line_of_code_segment<<endl;
+
+    
+   // cout<<end_line_of_data_segment<<endl;
+   // cout<<end_line_of_code_segment<<endl;
+    assembly_code.close();
+}
+
+void print_new_line(){
+    /* NEWLINE PROC
+                push ax
+                push dx
+                mov ah, 2
+                mov dl, cr
+                int 21h
+                mov dl, nl
+                int 21h
+                pop dx
+                pop ax
+                ret
+                NEW LINE ENDP 
+    */
+    
+
+    string code = "\n\n\tNEWLINE PROC\n\t\tPUSH AX\n\t\tPUSH DX\n\t\tMOV AH, 2\n\t\tMOV DL,CR\n\t\tINT 21H\n\t\tMOV DL,NL\n\t\tINT 21H\n\t\tPOP DX\n\t\tPOP AX\n\t\tRET\n\tNEWLINE ENDP";
+    write("code.asm", code, true);
+
+    increase_code_segment(code);
+    
+}
+
+ // procedure to print a number
+void print_number(){
+    /* 
+        PRINT PROC
+        push cx
+        push bx
+        push dx
+        push ax
+        
+        ;INITIALIZE COUNT
+        MOV CX, 0
+        MOV DX, 0
+        
+        EXTRACT:
+            CMP AX, 0
+            JE SHOW
+            
+            MOV BX, 10
+            
+            DIV BX      ; AX/BX
+            
+            PUSH DX     ;PUSH THE REMAINDER IN STACK
+            
+            XOR DX, DX  ;CLEAR THE REMAINDER
+            INC CX      ;INCREASE COUNT
+            
+            JMP EXTRACT
+
+
+        SHOW:
+            CMP CX, 0
+            JE E       ; IF COUNT = 0 RETURN
+            
+            POP DX
+            ADD DX, 48    ;POP DX AND ADD 48 WITH DX TO MAKE IT ASCII
+            
+            MOV AH, 2
+            INT 21H
+            DEC CX
+            JMP SHOW
+            
+        E: 
+            POP AX
+            POP DX
+            POP BX
+            POP CX
+            
+            RET   
+    PRINT ENDP 
+    */
+    string code;
+    code = "\n\tPRINT_NUMBER PROC\n\t\tPUSH CX\n\t\tPUSH BX\n\t\tPUSH DX\n\t\tPUSH AX\n\t\tMOV CX, 0\n\t\tMOV DX,0";
+    code += "\n\n\t\tEXTRACT: \n\t\t\tCMP AX, O\n\t\t\tJE SHOW\n\t\t\tMOV BX, 10\n\t\t\tDIV BX\n\t\t\tPUSH DX\n\t\t\tXOR DX,DX\n\t\t\tINC CX\n\t\tJMP EXTRACT";
+    code += "\n\n\t\tSHOW: \n\t\t\tCMP CX, 0\n\t\t\tJE E\n\t\t\tPOP DX\n\t\t\tADD DX,48\n\t\t\tMOV AH,2\n\t\t\tINT 21H\n\t\t\tDEC CX\n\t\tJMP SHOW";
+    code += "\n\n\t\tE: \n\t\t\tPOP AX\n\t\t\tPOP DX\n\t\t\tPOP BX\n\t\t\tPOP CX\n\t\tRET\n\tPRINT_NUMBER ENDP\n";
+    
+    write("code.asm", code, true);
+    increase_code_segment(code);
+}
+
+void terminate_assembly_file(){
+    ofstream assembly_code;
+    assembly_code.open("code.asm", ios_base::app);
+
+    if(!assembly_code.is_open()){
+        cout<<"Code.asm can not be opened in terminate_assembly_file\n";
+        return;
+    }
+
+    string code = "END MAIN\n";
+    assembly_code<<code<<endl;
+    increase_code_segment(code);
+    assembly_code.close();
+
+}
+
+
+
 int main(int argc, char* argv[]){
     FILE *file;
 
@@ -1617,23 +1548,27 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 
-    // log_file.open("log.txt");
     parse_file.open("parse.txt");
     error_file.open("error.txt");
-    assembly_code.open("assembly.txt");
+    
+    open_assembly_file();
+    print_new_line();
+    print_number();
+    
+
 
     yyin = file;
     yyparse();
-
-    // log_file<<"Total Lines: "<<total_line_count<<"\n";
-    // log_file<<"Total Errors: "<<e_count<<"\n";
-
-    fclose(yyin);
     
+    terminate_assembly_file();
+
     parse_file.close();
     error_file.close();
-    assembly_code.close();
-    // log_file.close();
+    fclose(yyin);
+
+    cout<<"end_line_of_code_segment " << end_line_of_code_segment<<endl;
+    cout<<"end_line_of_data_segment "<<end_line_of_data_segment<<endl;
+    cout<<"total_line_in_assembly "<< total_line_in_assembly<<endl;
     return 0;
 
 
