@@ -1343,9 +1343,21 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
-            string code = "\t\tPOP AX\t\t ; " + $1->get_name() + " poppped\n";
-            code += "\t\tINC AX\n";
-            code += "\t\tPUSH AX\n";
+            SymbolInfo* prev = symboltable->look_up($1->get_name());
+            int stack_offset = prev->get_stack_offset();
+            string code = "";
+            if(stack_offset == -1){
+                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
+            }else{
+                if(stack_offset == 0){
+                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
+                }else{
+                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                }
+            }
+
+            code += "\t\tINC CX\n";
+            code += "\t\tPUSH CX\n";
             write_in_code_segment(code);
         }
         | variable DECOP {
@@ -1361,9 +1373,22 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
-            string code = "\t\tPOP AX\t\t ; " + $1->get_name() + " poppped\n";
-            code += "\t\tDEC AX\n";
-            code += "\t\tPUSH AX\n";
+            SymbolInfo* prev = symboltable->look_up($1->get_name());
+            int stack_offset = prev->get_stack_offset();
+            string code = "";
+            if(stack_offset == -1){
+                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
+            }else{
+                if(stack_offset == 0){
+                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
+                }else{
+                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                }
+            }
+            
+            code += "\t\tINC CX\n";
+            code += "\t\tPUSH CX\n";
+            write_in_code_segment(code);
         }
         | ID LPAREN argument_list RPAREN {
             $$ = new SymbolInfo("", "factor");
