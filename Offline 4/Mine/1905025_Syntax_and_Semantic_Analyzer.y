@@ -132,6 +132,39 @@
 
     }
 
+    void variable_operation(SymbolInfo* x){
+        if(symboltable->get_current_scope_id() != 1){
+            if(! x->is_array()){
+                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared ";
+                write_in_code_segment(code);
+                symboltable->set_stack_offset(x->get_name(), stack_offset);
+                stack_offset += 2;
+            }else{
+                int size = x->get_size();
+                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared ";
+                write_in_code_segment(code);
+                symboltable->set_stack_offset(x->get_name(), stack_offset);
+                stack_offset += 2*size;
+            } 
+        }else{
+            // if global variable
+            if(! x->is_array()){
+                string code = "\t" + x->get_name() + " DW ? \t;global variable "+x->get_name() +" declared\n";
+                write_in_data_segment(code);
+            }else{
+                int size = x->get_size();
+                string code = "\t" + x->get_name() + " DW "+to_string(size) +"DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
+                write_in_data_segment(code);
+            } 
+            
+            symboltable->set_stack_offset(x->get_name());   // set the global flag true;                 
+
+        }
+
+    }
+
+    
+
 
     void yyerror(string s){}
     int yyparse(void);
@@ -506,37 +539,14 @@ var_declaration : type_specifier declaration_list SEMICOLON {
                             write_error("Redeclaration of'"+ x->get_name()+"'");
                         }
                     }else{  // if inserted
-                        if(symboltable->get_current_scope_id() != 1){
-                            if(! x->is_array()){
-                                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared ";
-                                write_in_code_segment(code);
-                            }
-                            else{
-                                int size = x->get_size();
-                                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared ";
-                                write_in_code_segment(code);
-                            } 
-                        }else{
-                            // if global variable
-                            if(! x->is_array()){
-                                string code = "\t" + x->get_name() + " DW ? \t;global variable "+x->get_name() +" declared\n";
-                                write_in_data_segment(code);
-                            }else{
-                                int size = x->get_size();
-                                string code = "\t" + x->get_name() + " DW "+to_string(size) +"DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
-                                write_in_data_segment(code);
-                            } 
-                            symboltable->set_stack_offset(x->get_name());   // set the global flag true;                 
-
-                        }
+                        variable_operation(x);
                     }
-
-                }
                 
-            }
-            cout<<"no error"<<endl;
+                }
+                cout<<"no error"<<endl;
 
-        }
+            }
+    }
         | type_specifier error SEMICOLON {
             
             //write_to_console("var_declaration", "type_specifier error SEMICOLON");
@@ -771,7 +781,6 @@ statement : var_declaration {
 
         }
         | PRINTLN LPAREN ID RPAREN SEMICOLON {
-            string code = "\t" +new_label() + ":\n";
             
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1,$2,$3,$4,$5}));
@@ -784,14 +793,19 @@ statement : var_declaration {
             if(!prev){
                 write_error("Undeclared variable '"+ $3->get_name()+"'");
             }else{
-                code += "\t\tPUSH AX\n";
-                if(prev->get_stack_offset() == -1){
-                    code += "\t\tMOV AX, "+ prev->get_name()+"\n";
-                    code += "\t\tCALL PRINT_NUMBER\n";
-                    code += "\t\tCALL NEWLINE\n"; 
-                    code += "\t\tPOP AX\n";
-                    write_in_code_segment(code);
-                }
+                string code = "\t\tPOP AX\n";
+                code += "\t\tCALL PRINT_NUMBER\n";
+                code += "\t\tCALL NEWLINE\n"; 
+                write_in_code_segment(code);
+
+                // int stack_offset = prev->get_stack_offset();
+                // if(stack_offset == -1){
+                //     code += "\t\tCALL PRINT_NUMBER\n";
+                //     code += "\t\tCALL NEWLINE\n"; 
+                //     
+                // }else if(stack_offset == 0){
+
+                // }
             }
               
         }
@@ -911,7 +925,7 @@ expression : logic_expression {
             $$->set_name(stringconcat({$1,$2,$3}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
-            $$->add_child({$1,$2,$3 });
+            $$->add_child({$1,$2,$3});
             
             if($3->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression");
@@ -920,21 +934,27 @@ expression : logic_expression {
                 string type = type_casting($1, $3);
                 $$->set_specifier(type);
 
-                string label = new_label();
-                if($1->get_stack_offset() == -1){
+                string code ="\t\tPOP AX\n";
+                int stack_offset = $1->get_stack_offset();
+                if(stack_offset == -1){
                     if(! $1->is_array()){
-                        string code = "\t" + label + ": \n";
-                        code +="\t\tPUSH AX\n";
-                        code += "\t\tMOV AX, "+$3->get_name() + "\n";
-                        code += "\t\tMOV " + $1->get_name() + ", AX \n";
-                        code += "\t\tPOP AX\n";
+                        code += "\t\tMOV " + $1->get_name() + ", AX \n\t\tPUSH " + $1->get_name() +"\n";
                         write_in_code_segment(code);
                     }
                     
-                }                
-            }
-
-            
+                }else{
+                     
+                    if(! $1->is_array()){
+                        if(stack_offset == 0){
+                            code += "\t\tMOV [BX], AX\n";
+                            code += "\t\tPUSH [BX]\n";
+                        }else{
+                            code +="\t\tMOV [BX-" +to_string(2*stack_offset)+"], AX\n\t\tPUSH [BX-" + to_string(2*stack_offset) + "]\n";
+                        }
+                        write_in_code_segment(code);
+                    }
+                }              
+            }            
     }   
     ; 
 
@@ -1036,23 +1056,26 @@ simple_expression : term {
             $$->set_name(stringconcat({$1, $2, $3}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
-            $$->add_child({$1,$2,$3 });
+            $$->add_child({$1,$2,$3});
 
             if($1->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression " );
-            }
-
-            if($3->get_specifier() == "VOID"){
+            } else if($3->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression "  );
-            }
-            else if(($1->get_specifier() == "FLOAT" && $3->get_specifier() == "INT") || (($1->get_specifier() == "INT" && $3->get_specifier() == "FLOAT"))){
+            } else if(($1->get_specifier() == "FLOAT" && $3->get_specifier() == "INT") || (($1->get_specifier() == "INT" && $3->get_specifier() == "FLOAT"))){
                 $$->set_specifier("FLOAT");
-            }else if($1->get_specifier() == "INT" && $3->get_specifier() == "INT"){
+            } else if($1->get_specifier() == "INT" && $3->get_specifier() == "INT"){
                 $$->set_specifier("INT");
-            }else{
+            } else{
                 $$->set_specifier("error");
             }
 
+            string code = "\t\tPOP AX\t\t;" + $3->get_name()+" popped\n";
+            code += "\t\tPOP CX\t\t;" + $1->get_name()+" popped\n";
+            string add_or_sub = ($2->get_name() == "+")? "ADD" : "SUB";
+            code += "\t\t" + add_or_sub + " CX, AX\n";
+            code += "\t\tPUSH CX\n"; 
+            write_in_code_segment(code);
         }        
         ;
 
@@ -1074,9 +1097,6 @@ term : unary_expression {
 
         }
         | term MULOP unary_expression {
-            // write_to_log("term", "term MULOP unary_expression");
-            //write_to_console("term", "term MULOP unary_expression");
-
             $$ = new SymbolInfo("", "term");
             $$->set_name(stringconcat({$1, $2, $3}));
             $$->set_start_line($1->get_start_line());
@@ -1108,11 +1128,26 @@ term : unary_expression {
                     $$->set_specifier("error");
                 }
             }
-            // print_debug(833, $1->toString()+" "+$3->toString()+" "+$$->toString());
 
+            string code = "\t\tPOP CX\n";
+            code += "\t\tPOP AX\n"; 
+            code += "\t\tCWD\n";
+            if($2->get_name() == "*"){
+                code += "\t\tMUL CX\n";
+                code += "\t\tPUSH AX\n";  
+            }
+            else if($2->get_name() == "/"){
+                code += "\t\tXOR DX\t;clearing DX\n"; 
+                code += "\t\tDIV CX\n";
+                code += "\t\tPUSH AX\n";
+            }else{
+                code += "\t\tXOR DX\t;clearing DX\n";
+                code += "\t\tDIV CX\n";
+                code += "\t\tPUSH DX\n";
+            }
+
+            write_in_code_segment(code);
         }
-        
-        
         ;
 
 
@@ -1152,9 +1187,6 @@ unary_expression : ADDOP unary_expression {
 
         }
         | factor {
-            // write_to_log("unary_expression", "factor");
-            //write_to_console("unary_expression", "factor");
-
             $$ = new SymbolInfo("", "unary_expression");
             $$->set_name(stringconcat({$1}));
             
@@ -1163,16 +1195,12 @@ unary_expression : ADDOP unary_expression {
             $$->set_specifier($1->get_specifier());
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
-            $$->add_child({$1 });
-
-            
+            $$->add_child({$1 }); 
         }
         
         ;
 
 factor : variable {
-            // write_to_log("factor", "variable");
-            //write_to_console("factor", "variable");
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1}));
             
@@ -1183,9 +1211,25 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
-            // print_debug(1142, to_string($1->get_end_line()));
             $$->add_child({$1 });
 
+            SymbolInfo* prev = symboltable->look_up($1->get_name());
+            int stack_offset = prev->get_stack_offset();
+            cout<<prev->get_name()<<endl;
+            string code = "";
+            if(stack_offset == -1){
+                code +="\t\tMOV CX, "+ $1->get_name() + "\n"; 
+                code += "\t\tPUSH CX\n";
+            }else{
+                if(stack_offset == 0){
+                    code += "\t\tMOV CX, [BX]\n";
+                }else{
+                    code +="\t\tMOV CX, [BX-" +to_string(2*stack_offset)+"]\n"; 
+                }
+                code += "\t\tPUSH CX\n";
+            }
+
+            write_in_code_segment(code);
     }
         | LPAREN expression RPAREN {
             // write_to_log("factor", "LPAREN expression RPAREN");
@@ -1217,8 +1261,9 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
-            // print_debug(1174, to_string($1->get_end_line()));
-            $$->add_child({$1 });
+            $$->add_child({$1});
+
+            write_in_code_segment("\t\tMOV CX, " + $1->get_name()+"\n\t\tPUSH CX\n");
         }
         | CONST_FLOAT {
             // write_to_log("factor", "CONST_FLOAT");
@@ -1231,6 +1276,8 @@ factor : variable {
             $$->set_end_line($1->get_end_line());
             // print_debug(1186, to_string($1->get_end_line()));
             $$->add_child({$1 });
+            write_in_code_segment("\t\tMOV CX, " + $1->get_name()+"\n");
+
         }
         | variable INCOP {
             // write_to_log("factor", "variable INCOP");

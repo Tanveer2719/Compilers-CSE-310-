@@ -71,18 +71,84 @@
 		SUB SP, 2  	;variable n declared 
 		SUB SP, 2  	;variable o declared 
 		SUB SP, 2  	;variable p declared 
-	label_1: 
-		PUSH AX
-		MOV AX, 1
-		MOV i, AX 
-		POP AX
+		MOV CX, 1
+		PUSH CX
 
-	label_2:
-		PUSH AX
-		MOV AX, i
+		POP AX
+		MOV i, AX 
+		PUSH i
+
+		POP AX
 		CALL PRINT_NUMBER
 		CALL NEWLINE
+
+		MOV CX, 5
+		PUSH CX
+
+		MOV CX, 8
+		PUSH CX
+
+		POP AX		;8 popped
+		POP CX		;5 popped
+		ADD CX, AX
+		PUSH CX
+
 		POP AX
+		MOV j, AX 
+		PUSH j
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, i
+		PUSH CX
+
+		MOV CX, 2
+		PUSH CX
+
+		MOV CX, j
+		PUSH CX
+
+		POP CX
+		POP AX
+		CWD
+		MUL CX
+		PUSH AX
+
+		POP AX		;2*j popped
+		POP CX		;i popped
+		ADD CX, AX
+		PUSH CX
+
+		POP AX
+		MOV [BX], AX
+		PUSH [BX]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BX]
+		PUSH CX
+
+		MOV CX, 9
+		PUSH CX
+
+		POP CX
+		POP AX
+		CWD
+		XOR DX	;clearing DX
+		DIV CX
+		PUSH DX
+
+		POP AX
+		MOV [BX-8], AX
+		PUSH [BX-8]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
 
 		ADD SP, 12	;freeing the stack of the local variables
 		POP BP	; restoring BP
