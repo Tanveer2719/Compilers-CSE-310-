@@ -112,9 +112,9 @@
 		JLE label1
 		PUSH 0
 		JMP label2 
-	label1 :
+	label1:
 		PUSH 1
-	label2 :
+	label2:
 
 		POP AX
 		MOV [BX-6], AX
@@ -137,9 +137,9 @@
 		JNE label3
 		PUSH 0
 		JMP label4 
-	label3 :
+	label3:
 		PUSH 1
-	label4 :
+	label4:
 
 		POP AX
 		MOV [BX-8], AX

@@ -1076,9 +1076,9 @@ rel_expression : simple_expression {
             code += "\t\t" + relop + " " + ifLabel + "\n";
             code += "\t\tPUSH 0\n";
             code += "\t\tJMP "+ elseLabel+" \n";
-            code += "\t"+ ifLabel+" :\n";
+            code += "\t"+ ifLabel+":\n";
             code += "\t\tPUSH 1\n";
-            code += "\t"+ elseLabel+" :\n";
+            code += "\t"+ elseLabel+":\n";
 
             write_in_code_segment(code);
     }
