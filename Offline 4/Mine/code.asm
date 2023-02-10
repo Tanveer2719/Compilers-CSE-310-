@@ -50,13 +50,13 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, i
+		MOV CX, i       ; i accessed
 		PUSH CX
 
 		MOV CX, 2
 		PUSH CX
 
-		MOV CX, j
+		MOV CX, j       ; j accessed
 		PUSH CX
 
 		POP CX
@@ -78,7 +78,7 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, [BX]
+		MOV CX, [BX]      ; k accessed 
 		PUSH CX
 
 		MOV CX, 9
@@ -92,8 +92,135 @@
 		PUSH DX
 
 		POP AX
+		MOV [BX-4], AX
+		PUSH [BX-4]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BX-4]      ; m accessed 
+		PUSH CX
+
+		MOV CX, [BX-2]      ; ll accessed 
+		PUSH CX
+
+		POP BX		; ll popped
+		POP AX		; m popped
+		;CHECKING IF
+		CMP AX, BX
+		JLE label_1
+		PUSH 0
+		JMP label_2 
+	label_1 :
+		PUSH 1
+	label_2 :
+
+		POP AX
+		MOV [BX-6], AX
+		PUSH [BX-6]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, i       ; i accessed
+		PUSH CX
+
+		MOV CX, j       ; j accessed
+		PUSH CX
+
+		POP BX		; j popped
+		POP AX		; i popped
+		;CHECKING IF
+		CMP AX, BX
+		JNE label_3
+		PUSH 0
+		JMP label_4 
+	label_3 :
+		PUSH 1
+	label_4 :
+
+		POP AX
 		MOV [BX-8], AX
 		PUSH [BX-8]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BX-6]      ; n accessed 
+		PUSH CX
+
+		MOV CX, [BX-8]      ; o accessed 
+		PUSH CX
+
+		POP BX		; o popped
+		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JNE label_5 
+		CMP BX, 0		; if ax = 1
+		JNE label_5 
+		MOV AX, 0
+		JMP label_6 
+	label_5: 
+		MOV AX, 1
+	label_6: 
+		PUSH AX
+
+		POP AX
+		MOV [BX-10], AX
+		PUSH [BX-10]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BX-6]      ; n accessed 
+		PUSH CX
+
+		MOV CX, [BX-8]      ; o accessed 
+		PUSH CX
+
+		POP BX		; o popped
+		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JE label_7 
+		CMP BX, 0		; if ax = 1
+		JE label_7 
+		MOV AX, 1
+		JMP label_8 
+	label_7: 
+		MOV AX, 0
+	label_8: 
+		PUSH AX
+
+		POP AX
+		MOV [BX-10], AX
+		PUSH [BX-10]
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		POP AX		 ; p poppped
+		INC AX
+		PUSH AX
+
+		POP AX
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BX-10]      ; p accessed 
+		PUSH CX
+
+		POP AX			; ppopped
+		NEG AX
+		PUSH AX
+
+		POP AX
+		MOV [BX], AX
+		PUSH [BX]
 
 		POP AX
 		CALL PRINT_NUMBER
@@ -173,6 +300,6 @@
 			POP CX
 			POP BX
 			RET 
-		PRINT_INTEGER ENDP
+	PRINT_INTEGER ENDP
 END MAIN
 

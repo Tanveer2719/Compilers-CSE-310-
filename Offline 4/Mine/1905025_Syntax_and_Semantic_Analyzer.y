@@ -163,6 +163,23 @@
 
     }
 
+    string get_relational_command(string op){
+        // "<"|"<="|">"|">="|"=="|"!="
+        if(op == "<"){
+            return "JL";
+        }else if(op == "<="){
+            return "JLE";
+        }else if(op == ">"){
+            return "JG";
+        }else if(op == ">="){
+            return "JGE";
+        }else if(op == "=="){
+            return "JE";
+        }else if(op == "!="){
+            return "JNE";
+        }
+    }
+
     
 
 
@@ -939,7 +956,7 @@ expression : logic_expression {
                             code += "\t\tMOV [BX], AX\n";
                             code += "\t\tPUSH [BX]\n";
                         }else{
-                            code +="\t\tMOV [BX-" +to_string(2*stack_offset)+"], AX\n\t\tPUSH [BX-" + to_string(2*stack_offset) + "]\n";
+                            code +="\t\tMOV [BX-" +to_string(stack_offset)+"], AX\n\t\tPUSH [BX-" + to_string(stack_offset) + "]\n";
                         }
                         write_in_code_segment(code);
                     }
@@ -980,6 +997,38 @@ logic_expression : rel_expression {
             }
 
             $$->set_specifier("INT");
+
+
+            string yLabel = new_label();
+            string nLabel = new_label(); 
+            string code = "";
+            code += "\t\tPOP BX\t\t; " + $3->get_name() + " popped\n";
+            code += "\t\tPOP AX\t\t; " + $1->get_name() + " popped\n";
+            if($2->get_name() == "||"){
+                code += "\t\tCMP AX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJNE "+ yLabel + " \n";
+                code += "\t\tCMP BX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJNE "+ yLabel + " \n";
+                code += "\t\tMOV AX, 0\n";
+                code += "\t\tJMP "+ nLabel + " \n";
+                code += "\t" + yLabel + ": \n";
+                code += "\t\tMOV AX, 1\n";
+                code += "\t"+ nLabel + ": \n"; 
+            }else if($2->get_name() == "&&"){
+                code += "\t\tCMP AX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJE "+ yLabel + " \n";
+                code += "\t\tCMP BX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJE "+ yLabel + " \n";
+                code += "\t\tMOV AX, 1\n";
+                code += "\t\tJMP "+ nLabel + " \n";
+                code += "\t" + yLabel + ": \n";
+                code += "\t\tMOV AX, 0\n";
+                code += "\t"+ nLabel + ": \n";
+            }
+
+            code += "\t\tPUSH AX\n";
+            write_in_code_segment(code);
+
         }
         
         ;
@@ -999,14 +1048,17 @@ rel_expression : simple_expression {
 
         }
         | simple_expression RELOP simple_expression {
-            // write_to_log("rel_expression", "simple_expression RELOP simple_expression");
-            //write_to_console("rel_expression", "simple_expression RELOP simple_expression");
             $$ = new SymbolInfo("", "rel_expression");
             $$->set_name(stringconcat({$1, $2, $3}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
             $$->add_child({$1,$2,$3 });
+
+            string relop = get_relational_command($2->get_name());
             
+            string ifLabel = new_label();
+            string elseLabel = new_label();
+
             if($1->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression " );
             }
@@ -1016,6 +1068,19 @@ rel_expression : simple_expression {
             }
             
             $$->set_specifier("INT");
+            
+            string code = "\t\tPOP BX\t\t; "+$3->get_name()+" popped\n";
+            code += "\t\tPOP AX\t\t; "+$1->get_name()+" popped\n";
+            code += "\t\t;CHECKING IF\n";
+            code += "\t\tCMP AX, BX\n";
+            code += "\t\t" + relop + " " + ifLabel + "\n";
+            code += "\t\tPUSH 0\n";
+            code += "\t\tJMP "+ elseLabel+" \n";
+            code += "\t"+ ifLabel+" :\n";
+            code += "\t\tPUSH 1\n";
+            code += "\t"+ elseLabel+" :\n";
+
+            write_in_code_segment(code);
     }
     ;
 
@@ -1134,9 +1199,6 @@ term : unary_expression {
 
 
 unary_expression : ADDOP unary_expression {
-            // write_to_log("unary_expression", "ADDOP unary_expression");
-            //write_to_console("unary_expression", "ADDOP unary_expression");
-
             $$ = new SymbolInfo("", "unary_expression");
             $$->set_name(stringconcat({$1,$2}));
             $$->set_start_line($1->get_start_line());
@@ -1149,6 +1211,15 @@ unary_expression : ADDOP unary_expression {
             } else{
                 $$->set_specifier($2->get_specifier());
             }
+
+            string code = "\t\tPOP AX\t\t\t; "+ $2->get_name() + " popped\n";
+            if($1->get_name() == "-"){
+                code += "\t\tNEG AX\n";
+            }
+            code += "\t\tPUSH AX\n";
+
+            write_in_code_segment(code);
+
         }
         | NOT unary_expression {
             // write_to_log("unary_expression", "NOT unary_expression");
@@ -1199,13 +1270,13 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ $1->get_name() + "\n"; 
+                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
                 code += "\t\tPUSH CX\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tMOV CX, [BX]\n";
+                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
                 }else{
-                    code +="\t\tMOV CX, [BX-" +to_string(2*stack_offset)+"]\n"; 
+                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
                 }
                 code += "\t\tPUSH CX\n";
             }
@@ -1259,8 +1330,6 @@ factor : variable {
 
         }
         | variable INCOP {
-            // write_to_log("factor", "variable INCOP");
-            //write_to_console("factor", "variable INCOP");
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1, $2}));
 
@@ -1272,12 +1341,14 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
-            //  print_debug(1202, to_string($2->get_end_line()));
             $$->add_child({$1,$2 });
+
+            string code = "\t\tPOP AX\t\t ; " + $1->get_name() + " poppped\n";
+            code += "\t\tINC AX\n";
+            code += "\t\tPUSH AX\n";
+            write_in_code_segment(code);
         }
         | variable DECOP {
-            // write_to_log("factor", "variable DECOP");
-            //write_to_console("factor", "variable DECOP");
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1, $2}));
             
@@ -1289,6 +1360,10 @@ factor : variable {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
+
+            string code = "\t\tPOP AX\t\t ; " + $1->get_name() + " poppped\n";
+            code += "\t\tDEC AX\n";
+            code += "\t\tPUSH AX\n";
         }
         | ID LPAREN argument_list RPAREN {
             $$ = new SymbolInfo("", "factor");
@@ -1544,7 +1619,7 @@ void print_number(){
         code<<"\t\t\tPOP CX\n";
         code<<"\t\t\tPOP BX\n";
         code<<"\t\t\tRET \n";
-    code<<"\t\tPRINT_INTEGER ENDP\n";
+    code<<"\tPRINT_INTEGER ENDP\n";
     
     end_line_of_code_segment += 52;
     total_line_in_assembly += 52;
