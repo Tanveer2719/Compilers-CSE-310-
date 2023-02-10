@@ -748,9 +748,6 @@ statement : var_declaration {
     }
         | IF LPAREN expression RPAREN statement %prec THEN {
             /* conflict */
-            // write_to_log("statement", "IF LPAREN expression RPAREN statement");
-            //write_to_console("statement", "IF LPAREN expression RPAREN statement");
-
             $$ = new SymbolInfo("", "statement");
             $$->set_name(stringconcat({$1, $2, $3, $4, $5}));
             $$->set_start_line($1->get_start_line());
@@ -797,16 +794,9 @@ statement : var_declaration {
                 code += "\t\tCALL PRINT_NUMBER\n";
                 code += "\t\tCALL NEWLINE\n"; 
                 write_in_code_segment(code);
-
-                // int stack_offset = prev->get_stack_offset();
-                // if(stack_offset == -1){
-                //     code += "\t\tCALL PRINT_NUMBER\n";
-                //     code += "\t\tCALL NEWLINE\n"; 
-                //     
-                // }else if(stack_offset == 0){
-
-                // }
             }
+
+            
               
         }
         | RETURN expression {isVoid($2);} SEMICOLON {
@@ -954,7 +944,8 @@ expression : logic_expression {
                         write_in_code_segment(code);
                     }
                 }              
-            }            
+            }  
+                     
     }   
     ; 
 
@@ -995,9 +986,6 @@ logic_expression : rel_expression {
 
 
 rel_expression : simple_expression {
-            // write_to_log("rel_expression", "simple_expression");
-            //write_to_console("rel_expression", "simple_expression");
-
             $$ = new SymbolInfo("", "rel_expression");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -1033,9 +1021,6 @@ rel_expression : simple_expression {
 
 
 simple_expression : term {
-            // write_to_log("simple_expression", "term");
-            //write_to_console("simple_expression", "term");
-
             $$ = new SymbolInfo("", "simple_expression");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -1049,9 +1034,6 @@ simple_expression : term {
 
         }
         | simple_expression ADDOP term {
-            // write_to_log("simple_expression", "simple_expression ADDOP term");
-            //write_to_console("simple_expression", "simple_expression ADDOP term");
-
             $$ = new SymbolInfo("", "simple_expression");
             $$->set_name(stringconcat({$1, $2, $3}));
             $$->set_start_line($1->get_start_line());
@@ -1137,11 +1119,11 @@ term : unary_expression {
                 code += "\t\tPUSH AX\n";  
             }
             else if($2->get_name() == "/"){
-                code += "\t\tXOR DX\t;clearing DX\n"; 
+                code += "\t\tXOR DX, DX\t;clearing DX\n"; 
                 code += "\t\tDIV CX\n";
                 code += "\t\tPUSH AX\n";
             }else{
-                code += "\t\tXOR DX\t;clearing DX\n";
+                code += "\t\tXOR DX, DX\t;clearing DX\n";
                 code += "\t\tDIV CX\n";
                 code += "\t\tPUSH DX\n";
             }
@@ -1215,7 +1197,6 @@ factor : variable {
 
             SymbolInfo* prev = symboltable->look_up($1->get_name());
             int stack_offset = prev->get_stack_offset();
-            cout<<prev->get_name()<<endl;
             string code = "";
             if(stack_offset == -1){
                 code +="\t\tMOV CX, "+ $1->get_name() + "\n"; 
@@ -1232,8 +1213,6 @@ factor : variable {
             write_in_code_segment(code);
     }
         | LPAREN expression RPAREN {
-            // write_to_log("factor", "LPAREN expression RPAREN");
-            //write_to_console("factor", "LPAREN expression RPAREN");
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1, $2, $3}));
             
@@ -1503,72 +1482,76 @@ void print_new_line(){
                 NEW LINE ENDP 
     */
     
-
     string code = "\n\n\tNEWLINE PROC\n\t\tPUSH AX\n\t\tPUSH DX\n\t\tMOV AH, 2\n\t\tMOV DL,CR\n\t\tINT 21H\n\t\tMOV DL,NL\n\t\tINT 21H\n\t\tPOP DX\n\t\tPOP AX\n\t\tRET\n\tNEWLINE ENDP";
     write("code.asm", code, true);
-
     increase_code_segment(code);
     
 }
 
  // procedure to print a number
 void print_number(){
-    /* 
-        PRINT PROC
-        push cx
-        push bx
-        push dx
-        push ax
+        ofstream code;
+        code.open("code.asm", ios_base::app);
+     
+    code<<"\n\tPRINT_NUMBER PROC \n";
+        code<<"\t\tPUSH BX\n";
+        code<<"\t\tPUSH CX\n";
+        code<<"\t\tPUSH DX\n";
+        code<<"\t\tPUSH AX\n";
         
-        ;INITIALIZE COUNT
-        MOV CX, 0
-        MOV DX, 0
-        
-        EXTRACT:
-            CMP AX, 0
-            JE SHOW
-            
-            MOV BX, 10
-            
-            DIV BX      ; AX/BX
-            
-            PUSH DX     ;PUSH THE REMAINDER IN STACK
-            
-            XOR DX, DX  ;CLEAR THE REMAINDER
-            INC CX      ;INCREASE COUNT
-            
-            JMP EXTRACT
-
-
-        SHOW:
-            CMP CX, 0
-            JE E       ; IF COUNT = 0 RETURN
-            
-            POP DX
-            ADD DX, 48    ;POP DX AND ADD 48 WITH DX TO MAKE IT ASCII
-            
-            MOV AH, 2
-            INT 21H
-            DEC CX
-            JMP SHOW
-            
-        E: 
-            POP AX
-            POP DX
-            POP BX
-            POP CX
-            
-            RET   
-    PRINT ENDP 
-    */
-    string code;
-    code = "\n\tPRINT_NUMBER PROC\n\t\tPUSH CX\n\t\tPUSH BX\n\t\tPUSH DX\n\t\tPUSH AX\n\t\tMOV CX, 0\n\t\tMOV DX,0";
-    code += "\n\n\t\tEXTRACT: \n\t\t\tCMP AX, 0\n\t\t\tJE SHOW\n\t\t\tMOV BX, 10\n\t\t\tDIV BX\n\t\t\tPUSH DX\n\t\t\tXOR DX,DX\n\t\t\tINC CX\n\t\tJMP EXTRACT";
-    code += "\n\n\t\tSHOW: \n\t\t\tCMP CX, 0\n\t\t\tJE E\n\t\t\tPOP DX\n\t\t\tADD DX,48\n\t\t\tMOV AH,2\n\t\t\tINT 21H\n\t\t\tDEC CX\n\t\tJMP SHOW";
-    code += "\n\n\t\tE: \n\t\t\tPOP AX\n\t\t\tPOP DX\n\t\t\tPOP BX\n\t\t\tPOP CX\n\t\tRET\n\tPRINT_NUMBER ENDP\n";
+        code<< "\t\t;if(AX < -1) then the number is positive\n";
+        code<<"\t\tCMP AX, 0\n";
+        code<<"\t\tJGE POSITIVE\n";
+        code<<"\t\t;else, the number is negative\n";
+        code<<"\t\tMOV AH, 2           \n";
+        code<<"\t\tMOV DL, '-'         ;Print a '-' sign\n";
+        code<<"\t\tINT 21H\n";
+        code<<"\t\tNEG AX              ;make AX positive\n";
+        code<<"\t\tPOSITIVE:\n";
+        code<<"\t\t\tMOV CX, 0        ;Initialize character count\n";
+        code<<"\t\tPUSH_WHILE:\n";
+        code<<"\t\t\tXOR DX, DX  ;clear DX\n";
+        code<<"\t\t\tMOV BX, 10  ;BX has the divisor\n";
+        code<<"\t\t\tDIV BX\n";
+        code<<"\t\t\t;quotient is in AX and remainder is in DX\n";
+        code<<"\t\t\tPUSH DX     ;Division by 10 will have a remainder less than 8 bits\n";
+        code<<"\t\t\tINC CX       ;CX++\n";
+        code<<"\t\t\t;if(AX == 0) then break the loop\n";
+        code<<"\t\t\tCMP AX, 0\n";
+        code<<"\t\t\tJE END_PUSH_WHILE\n";
+        code<<"\t\t;else continue\n";
+        code<<"\t\t\tJMP PUSH_WHILE\n";
+        code<<"\t\tEND_PUSH_WHILE:\n";
+        code<<"\t\t\tMOV AH, 2\n";
+        code<<"\t\tPOP_WHILE:\n";
+        code<<"\t\t\tPOP DX      ;Division by 10 will have a remaainder less than 8 bits\n";
+        code<<"\t\t\tADD DL, '0'\n";
+        code<<"\t\t\tINT 21H     ;So DL will have the desired character\n";
+        code<<"\t\t\tDEC CX       ;CX--\n";
+        code<<"\t\t\t;if(CX <= 0) then end loop\n";
+        code<<"\t\t\tCMP CX, 0\n";
+        code<<"\t\t\tJLE END_POP_WHILE\n";
+        code<<"\t\t\t;else continue\n";
+        code<<"\t\t\tJMP POP_WHILE\n";
+        code<<"\t\t\tEND_POP_WHILE:\n";
+        code<<"\t\t\t;Print newline\n";
+        code<<"\t\t\tMOV DL, 0DH\n";
+        code<<"\t\t\tINT 21H\n";
+        code<<"\t\t\tMOV DL, 0AH\n";
+        code<<"\t\t\tINT 21H\n";
+        code<<"\t\t\tPOP AX\n";
+        code<<"\t\t\tPOP DX\n";
+        code<<"\t\t\tPOP CX\n";
+        code<<"\t\t\tPOP BX\n";
+        code<<"\t\t\tRET \n";
+    code<<"\t\tPRINT_INTEGER ENDP\n";
     
-    write("code.asm", code, true);
-    increase_code_segment(code);
+    end_line_of_code_segment += 52;
+    total_line_in_assembly += 52;
+
+
+    code.close();
+   
 }
 
 void terminate_assembly_file(){
@@ -1601,23 +1584,19 @@ int main(int argc, char* argv[]){
     error_file.open("error.txt");
     
     open_assembly_file();
-    print_new_line();
-    print_number();
-    
 
 
     yyin = file;
     yyparse();
+
+    print_new_line();
+    print_number();
     
     terminate_assembly_file();
 
     parse_file.close();
     error_file.close();
     fclose(yyin);
-
-    cout<<"end_line_of_code_segment " << end_line_of_code_segment<<endl;
-    cout<<"end_line_of_data_segment "<<end_line_of_data_segment<<endl;
-    cout<<"total_line_in_assembly "<< total_line_in_assembly<<endl;
     return 0;
 
 

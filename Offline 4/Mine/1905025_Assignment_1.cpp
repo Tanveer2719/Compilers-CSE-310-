@@ -189,7 +189,7 @@ public:
     void set_end_line(int x){
         end_line = x;
     }
-    bool set_leaf(){
+    void set_leaf(){
         leaf = true;
     }
     void add_child(vector<SymbolInfo*> symbolInfoList){

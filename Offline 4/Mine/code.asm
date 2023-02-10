@@ -8,57 +8,6 @@
 
 
 .CODE
-
-
-	NEWLINE PROC
-		PUSH AX
-		PUSH DX
-		MOV AH, 2
-		MOV DL,CR
-		INT 21H
-		MOV DL,NL
-		INT 21H
-		POP DX
-		POP AX
-		RET
-	NEWLINE ENDP
-
-	PRINT_NUMBER PROC
-		PUSH CX
-		PUSH BX
-		PUSH DX
-		PUSH AX
-		MOV CX, 0
-		MOV DX,0
-
-		EXTRACT: 
-			CMP AX, 0
-			JE SHOW
-			MOV BX, 10
-			DIV BX
-			PUSH DX
-			XOR DX,DX
-			INC CX
-		JMP EXTRACT
-
-		SHOW: 
-			CMP CX, 0
-			JE E
-			POP DX
-			ADD DX,48
-			MOV AH,2
-			INT 21H
-			DEC CX
-		JMP SHOW
-
-		E: 
-			POP AX
-			POP DX
-			POP BX
-			POP CX
-		RET
-	PRINT_NUMBER ENDP
-
 	main PROC
 
 		MOV AX, @DATA
@@ -138,7 +87,7 @@
 		POP CX
 		POP AX
 		CWD
-		XOR DX	;clearing DX
+		XOR DX, DX	;clearing DX
 		DIV CX
 		PUSH DX
 
@@ -159,5 +108,71 @@
 
 	main ENDP
 
+
+
+	NEWLINE PROC
+		PUSH AX
+		PUSH DX
+		MOV AH, 2
+		MOV DL,CR
+		INT 21H
+		MOV DL,NL
+		INT 21H
+		POP DX
+		POP AX
+		RET
+	NEWLINE ENDP
+
+	PRINT_NUMBER PROC 
+		PUSH BX
+		PUSH CX
+		PUSH DX
+		PUSH AX
+		;if(AX < -1) then the number is positive
+		CMP AX, 0
+		JGE POSITIVE
+		;else, the number is negative
+		MOV AH, 2           
+		MOV DL, '-'         ;Print a '-' sign
+		INT 21H
+		NEG AX              ;make AX positive
+		POSITIVE:
+			MOV CX, 0        ;Initialize character count
+		PUSH_WHILE:
+			XOR DX, DX  ;clear DX
+			MOV BX, 10  ;BX has the divisor
+			DIV BX
+			;quotient is in AX and remainder is in DX
+			PUSH DX     ;Division by 10 will have a remainder less than 8 bits
+			INC CX       ;CX++
+			;if(AX == 0) then break the loop
+			CMP AX, 0
+			JE END_PUSH_WHILE
+		;else continue
+			JMP PUSH_WHILE
+		END_PUSH_WHILE:
+			MOV AH, 2
+		POP_WHILE:
+			POP DX      ;Division by 10 will have a remaainder less than 8 bits
+			ADD DL, '0'
+			INT 21H     ;So DL will have the desired character
+			DEC CX       ;CX--
+			;if(CX <= 0) then end loop
+			CMP CX, 0
+			JLE END_POP_WHILE
+			;else continue
+			JMP POP_WHILE
+			END_POP_WHILE:
+			;Print newline
+			MOV DL, 0DH
+			INT 21H
+			MOV DL, 0AH
+			INT 21H
+			POP AX
+			POP DX
+			POP CX
+			POP BX
+			RET 
+		PRINT_INTEGER ENDP
 END MAIN
 
