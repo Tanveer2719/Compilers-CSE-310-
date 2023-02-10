@@ -259,10 +259,12 @@
 		CMP AX, 0
 		JGE POSITIVE
 		;else, the number is negative
+		MOV CX, AX
 		MOV AH, 2           
 		MOV DL, '-'         ;Print a '-' sign
 		INT 21H
-		NEG AX              ;make AX positive
+		NEG CX              ;make AX positive
+		MOV AX, CX
 		POSITIVE:
 			MOV CX, 0        ;Initialize character count
 		PUSH_WHILE:

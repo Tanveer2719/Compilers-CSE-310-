@@ -1603,10 +1603,12 @@ void print_number(){
         code<<"\t\tCMP AX, 0\n";
         code<<"\t\tJGE POSITIVE\n";
         code<<"\t\t;else, the number is negative\n";
+        code<<"\t\tMOV CX, AX\n";
         code<<"\t\tMOV AH, 2           \n";
         code<<"\t\tMOV DL, '-'         ;Print a '-' sign\n";
         code<<"\t\tINT 21H\n";
-        code<<"\t\tNEG AX              ;make AX positive\n";
+        code<<"\t\tNEG CX              ;make AX positive\n";
+        code<<"\t\tMOV AX, CX\n";
         code<<"\t\tPOSITIVE:\n";
         code<<"\t\t\tMOV CX, 0        ;Initialize character count\n";
         code<<"\t\tPUSH_WHILE:\n";
@@ -1646,8 +1648,8 @@ void print_number(){
         code<<"\t\t\tRET \n";
     code<<"\tPRINT_NUMBER ENDP\n";
     
-    end_line_of_code_segment += 52;
-    total_line_in_assembly += 52;
+    end_line_of_code_segment += 54;
+    total_line_in_assembly += 54;
 
 
     code.close();
