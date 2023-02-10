@@ -203,9 +203,8 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, [BX-10]      ; p accessed 
-		INC CX
-		PUSH CX
+		INC [BX-10]      ; p accessed 
+		PUSH [BX-10]
 
 		POP AX
 		CALL PRINT_NUMBER

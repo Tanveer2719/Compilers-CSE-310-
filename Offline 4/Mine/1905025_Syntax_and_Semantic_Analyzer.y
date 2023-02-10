@@ -1347,17 +1347,18 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
+                code +="\t\tINC "+ $1->get_name() + "       ; " + $1->get_name() + " ++\n"; 
+                code +="\t\tPUSH "+ $1->get_name()+"\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tINC [BX]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tPUSH [BX]\n";
                 }else{
-                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tINC [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tPUSH [BX-" +to_string(stack_offset)+"]\n";
                 }
             }
 
-            code += "\t\tINC CX\n";
-            code += "\t\tPUSH CX\n";
             write_in_code_segment(code);
         }
         | variable DECOP {
@@ -1377,17 +1378,17 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
+                code +="\t\tDEC "+ $1->get_name() + "       ; " + $1->get_name() + " ++\n"; 
+                code +="\t\tPUSH "+ $1->get_name()+"\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tDEC [BX]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tPUSH [BX]\n";
                 }else{
-                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tDEC [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tPUSH [BX-" +to_string(stack_offset)+"]\n";
                 }
             }
-            
-            code += "\t\tINC CX\n";
-            code += "\t\tPUSH CX\n";
             write_in_code_segment(code);
         }
         | ID LPAREN argument_list RPAREN {
