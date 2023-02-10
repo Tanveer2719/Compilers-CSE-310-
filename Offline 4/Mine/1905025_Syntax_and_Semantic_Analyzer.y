@@ -44,7 +44,7 @@
     // insert new label
     string new_label(){
         total_label_count ++;
-        string s = "label_" + to_string(total_label_count);
+        string s = "label" + to_string(total_label_count);
         return s;
     }
 
@@ -1619,7 +1619,7 @@ void print_number(){
         code<<"\t\t\tPOP CX\n";
         code<<"\t\t\tPOP BX\n";
         code<<"\t\t\tRET \n";
-    code<<"\tPRINT_INTEGER ENDP\n";
+    code<<"\tPRINT_NUMBER ENDP\n";
     
     end_line_of_code_segment += 52;
     total_line_in_assembly += 52;

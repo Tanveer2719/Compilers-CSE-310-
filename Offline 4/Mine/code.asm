@@ -109,12 +109,12 @@
 		POP AX		; m popped
 		;CHECKING IF
 		CMP AX, BX
-		JLE label_1
+		JLE label1
 		PUSH 0
-		JMP label_2 
-	label_1 :
+		JMP label2 
+	label1 :
 		PUSH 1
-	label_2 :
+	label2 :
 
 		POP AX
 		MOV [BX-6], AX
@@ -134,12 +134,12 @@
 		POP AX		; i popped
 		;CHECKING IF
 		CMP AX, BX
-		JNE label_3
+		JNE label3
 		PUSH 0
-		JMP label_4 
-	label_3 :
+		JMP label4 
+	label3 :
 		PUSH 1
-	label_4 :
+	label4 :
 
 		POP AX
 		MOV [BX-8], AX
@@ -158,14 +158,14 @@
 		POP BX		; o popped
 		POP AX		; n popped
 		CMP AX, 0		; if ax = 1
-		JNE label_5 
+		JNE label5 
 		CMP BX, 0		; if ax = 1
-		JNE label_5 
+		JNE label5 
 		MOV AX, 0
-		JMP label_6 
-	label_5: 
+		JMP label6 
+	label5: 
 		MOV AX, 1
-	label_6: 
+	label6: 
 		PUSH AX
 
 		POP AX
@@ -185,14 +185,14 @@
 		POP BX		; o popped
 		POP AX		; n popped
 		CMP AX, 0		; if ax = 1
-		JE label_7 
+		JE label7 
 		CMP BX, 0		; if ax = 1
-		JE label_7 
+		JE label7 
 		MOV AX, 1
-		JMP label_8 
-	label_7: 
+		JMP label8 
+	label7: 
 		MOV AX, 0
-	label_8: 
+	label8: 
 		PUSH AX
 
 		POP AX
@@ -214,7 +214,7 @@
 		MOV CX, [BX-10]      ; p accessed 
 		PUSH CX
 
-		POP AX			; ppopped
+		POP AX			; p popped
 		NEG AX
 		PUSH AX
 
@@ -300,6 +300,6 @@
 			POP CX
 			POP BX
 			RET 
-	PRINT_INTEGER ENDP
+	PRINT_NUMBER ENDP
 END MAIN
 
