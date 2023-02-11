@@ -28,6 +28,8 @@
     int total_stack_size_used_in_function = 0;
     int stack_offset = 0;
 
+    string function_name = "";
+
     
     /*
         return total no of line in a string
@@ -94,6 +96,8 @@
     }
 
     void start_procedure(string id){
+        function_name = id;
+
         stack_offset = 0;
         string code = "\t" + id + " PROC\n";
         write("code.asm", code, true);
@@ -195,7 +199,7 @@
 }
 
 %token<symbolInfo> IF RPAREN LCURL PRINTLN RSQUARE COMMA SEMICOLON RCURL LSQUARE INCOP RELOP NOT LPAREN ASSIGNOP LOGICOP BITOP FOR DO INT FLOAT VOID SWITCH ADDOP DEFAULT ELSE WHILE BREAK CHAR DOUBLE DECOP RETURN CASE CONTINUE CONST_CHAR CONST_INT CONST_FLOAT PRINT ID MULOP THEN
-%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement
+%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement if_block 
 
 // PRECEDENCE DECLARATION
 %left ADDOP MULOP
@@ -721,6 +725,23 @@ statements : statement {
 
         ;
 
+
+if_block: {
+    string endLabel = new_label();
+    string elseLabel = new_label();
+    $$ = new SymbolInfo(elseLabel, "LABEL");
+
+
+    string code = "\t\tPOP AX\n";
+    code += "\t\tCMP AX, 0\n";
+    code += "\t\tJNE "+endLabel+"\n";
+    code += "\t\tJMP "+elseLabel +"\n";
+    code += "\t"+ endLabel+":";
+
+    write_in_code_segment(code);
+
+} 
+
 statement : var_declaration {
             // write_to_log("statement", "var_declaration");
             //write_to_console("statement", "var_declaration");
@@ -763,25 +784,42 @@ statement : var_declaration {
             $$->set_end_line($10->get_end_line());
             $$->add_child({$1,$2,$3,$5,$7,$9,$10});
     }
-        | IF LPAREN expression RPAREN statement %prec THEN {
+        | IF LPAREN expression RPAREN if_block statement %prec THEN {
             /* conflict */
             $$ = new SymbolInfo("", "statement");
-            $$->set_name(stringconcat({$1, $2, $3, $4, $5}));
+            $$->set_name(stringconcat({$1, $2, $3, $4, $6}));
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($5->get_end_line());
-            $$->add_child({$1, $2, $3, $4, $5});
-        }  // less precedence
+            $$->set_end_line($6->get_end_line());
+            $$->add_child({$1, $2, $3, $4, $6});
 
-        | IF LPAREN expression RPAREN statement ELSE statement %prec ELSE {
+            // statement executed now print the new label that was supposed to print
+            // if the expression was false
+            string code = "\t"+ $5->get_name()+":";
+
+            write_in_code_segment(code);
+        }  
+
+        | IF LPAREN expression RPAREN if_block statement ELSE {
+            string endLabel = new_label();
+            string code = "\t\tJMP "+ endLabel + "\n";  // if statement is true so we directly move to the endlabel
+            code += "\t" + $5->get_name() + ":";//  if statement is false so we execute the else
+            write_in_code_segment(code);
+            $<symbolInfo>$ = new SymbolInfo(endLabel, "LABEL");
+
+        } statement %prec ELSE {
             /* conflict */
-            // write_to_log("statement", "IF LPAREN expression RPAREN statement ELSE statement");
-            //write_to_console("statement", "IF LPAREN expression RPAREN statement ELSE statement");
-
+            
             $$ = new SymbolInfo("", "statement");
-            $$->set_name(stringconcat({$1, $2, $3, $4, $5, $6, $7}));
+            $$->set_name(stringconcat({$1, $2, $3, $4, $6, $7, $9}));
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($7->get_end_line());
-            $$->add_child({$1, $2, $3, $4, $5, $6, $7});
+            $$->set_end_line($9->get_end_line());
+            $$->add_child({$1, $2, $3, $4, $6, $7, $9});
+            
+            // all the statements executed
+            // so we print the endLabel
+            string code = "\t"+$<symbolInfo>8->get_name()+":";
+            write_in_code_segment(code);
+
         }
         | WHILE LPAREN expression {isVoid($3);} RPAREN statement {
             // write_to_log("statement", "WHILE LPAREN expression RPAREN statement");
@@ -825,6 +863,18 @@ statement : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2, $4 });
+
+            string code = "\t\tPOP AX\n";
+            if(function_name == "main"){
+                
+            }else{
+                SymbolInfo* func = symboltable->look_up(function_name);
+                int no_of_param = (func != NULL)? func->get_parameters().size() : 0;
+                code += "\t\tMOV SP, BP\n";
+                code += "\t\tPOP BP\n";
+                code += "\t\tRET " + (no_of_param ? to_string(2*no_of_param) : "");
+                write_in_code_segment(code);
+            }
     }
     ;
 

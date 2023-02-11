@@ -645,6 +645,10 @@ public:
     }
 
     int total_variables_in_current_scope(){
+        // returns total variable no in the current scope table
+        // if int a, arr[8] then
+        // total_variables = 9
+        // 8 for array elements and one for a
         return current_scope->get_total_variables();
     }
 
