@@ -19,24 +19,24 @@
 		PUSH CX
 
 		POP AX
-		MOV [BP], AX
-		PUSH [BP]
-
-		MOV CX, 8
-		PUSH CX
-
-		POP AX
 		MOV [BP-2], AX
 		PUSH [BP-2]
 
-		MOV CX, 6
+		MOV CX, 8
 		PUSH CX
 
 		POP AX
 		MOV [BP-4], AX
 		PUSH [BP-4]
 
-		MOV CX, [BP]      ; i accessed 
+		MOV CX, 6
+		PUSH CX
+
+		POP AX
+		MOV [BP-6], AX
+		PUSH [BP-6]
+
+		MOV CX, [BP-2]      ; i accessed 
 		PUSH CX
 
 		MOV CX, 3
@@ -57,12 +57,12 @@
 		JNE label3
 		JMP label4
 	label3:
-		MOV AX, [BP -2] 
+		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 	label4:
-		MOV CX, [BP-2]      ; j accessed 
+		MOV CX, [BP-4]      ; j accessed 
 		PUSH CX
 
 		MOV CX, 8
@@ -83,18 +83,18 @@
 		JNE label7
 		JMP label8
 	label7:
-		MOV AX, [BP]
+		MOV AX, [BP -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 		JMP label9
 	label8:
-		MOV AX, [BP -4] 
+		MOV AX, [BP -6] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 	label9:
-		MOV CX, [BP-4]      ; k accessed 
+		MOV CX, [BP-6]      ; k accessed 
 		PUSH CX
 
 		MOV CX, 6
@@ -115,13 +115,13 @@
 		JNE label12
 		JMP label13
 	label12:
-		MOV AX, [BP -4] 
+		MOV AX, [BP -6] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 		JMP label14
 	label13:
-		MOV CX, [BP-2]      ; j accessed 
+		MOV CX, [BP-4]      ; j accessed 
 		PUSH CX
 
 		MOV CX, 8
@@ -142,13 +142,13 @@
 		JNE label17
 		JMP label18
 	label17:
-		MOV AX, [BP -2] 
+		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 		JMP label19
 	label18:
-		MOV CX, [BP]      ; i accessed 
+		MOV CX, [BP-2]      ; i accessed 
 		PUSH CX
 
 		MOV CX, 5
@@ -169,7 +169,7 @@
 		JNE label22
 		JMP label23
 	label22:
-		MOV AX, [BP]
+		MOV AX, [BP -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -179,10 +179,10 @@
 		PUSH CX
 
 		POP AX
-		MOV [BP-4], AX
-		PUSH [BP-4]
+		MOV [BP-6], AX
+		PUSH [BP-6]
 
-		MOV AX, [BP -4] 
+		MOV AX, [BP -6] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 

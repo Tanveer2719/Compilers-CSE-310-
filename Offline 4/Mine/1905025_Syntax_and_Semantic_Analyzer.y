@@ -26,7 +26,7 @@
 
 
     int total_stack_size_used_in_function = 0;
-    int stack_offset = 0;
+    int stack_offset = 2;
 
     string function_name = "";
 
@@ -98,7 +98,7 @@
     void start_procedure(string id){
         function_name = id;
 
-        stack_offset = 0;
+        stack_offset = 2;
         string code = "\t" + id + " PROC\n";
         write("code.asm", code, true);
         increase_code_segment(code);
