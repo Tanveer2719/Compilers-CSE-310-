@@ -1012,10 +1012,10 @@ expression : logic_expression {
                      
                     if(! $1->is_array()){
                         if(stack_offset == 0){
-                            code += "\t\tMOV [BX], AX\n";
-                            code += "\t\tPUSH [BX]\n";
+                            code += "\t\tMOV [BP], AX\n";
+                            code += "\t\tPUSH [BP]\n";
                         }else{
-                            code +="\t\tMOV [BX-" +to_string(stack_offset)+"], AX\n\t\tPUSH [BX-" + to_string(stack_offset) + "]\n";
+                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
                         }
                         write_in_code_segment(code);
                     }
@@ -1333,9 +1333,9 @@ factor : variable {
                 code += "\t\tPUSH CX\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tMOV CX, [BX]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tMOV CX, [BP]      ; "+ $1->get_name() + " accessed \n";
                 }else{
-                    code +="\t\tMOV CX, [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tMOV CX, [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
                 }
                 code += "\t\tPUSH CX\n";
             }
@@ -1410,11 +1410,11 @@ factor : variable {
                 code +="\t\tPUSH "+ $1->get_name()+"\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tINC [BX]      ; "+ $1->get_name() + " accessed \n";
-                    code += "\t\tPUSH [BX]\n";
+                    code += "\t\tINC [BP]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tPUSH [BP]\n";
                 }else{
-                    code +="\t\tINC [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
-                    code +="\t\tPUSH [BX-" +to_string(stack_offset)+"]\n";
+                    code +="\t\tINC [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tPUSH [BP-" +to_string(stack_offset)+"]\n";
                 }
             }
 
@@ -1441,11 +1441,11 @@ factor : variable {
                 code +="\t\tPUSH "+ $1->get_name()+"\n";
             }else{
                 if(stack_offset == 0){
-                    code += "\t\tDEC [BX]      ; "+ $1->get_name() + " accessed \n";
-                    code += "\t\tPUSH [BX]\n";
+                    code += "\t\tDEC [BP]      ; "+ $1->get_name() + " accessed \n";
+                    code += "\t\tPUSH [BP]\n";
                 }else{
-                    code +="\t\tDEC [BX-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
-                    code +="\t\tPUSH [BX-" +to_string(stack_offset)+"]\n";
+                    code +="\t\tDEC [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    code +="\t\tPUSH [BP-" +to_string(stack_offset)+"]\n";
                 }
             }
             write_in_code_segment(code);

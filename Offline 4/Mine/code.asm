@@ -19,24 +19,24 @@
 		PUSH CX
 
 		POP AX
-		MOV [BX], AX
-		PUSH [BX]
+		MOV [BP], AX
+		PUSH [BP]
 
 		MOV CX, 8
 		PUSH CX
 
 		POP AX
-		MOV [BX-2], AX
-		PUSH [BX-2]
+		MOV [BP-2], AX
+		PUSH [BP-2]
 
 		MOV CX, 6
 		PUSH CX
 
 		POP AX
-		MOV [BX-4], AX
-		PUSH [BX-4]
+		MOV [BP-4], AX
+		PUSH [BP-4]
 
-		MOV CX, [BX]      ; i accessed 
+		MOV CX, [BP]      ; i accessed 
 		PUSH CX
 
 		MOV CX, 3
@@ -62,7 +62,7 @@
 		CALL NEWLINE
 
 	label4:
-		MOV CX, [BX-2]      ; j accessed 
+		MOV CX, [BP-2]      ; j accessed 
 		PUSH CX
 
 		MOV CX, 8
@@ -94,7 +94,7 @@
 		CALL NEWLINE
 
 	label9:
-		MOV CX, [BX-4]      ; k accessed 
+		MOV CX, [BP-4]      ; k accessed 
 		PUSH CX
 
 		MOV CX, 6
@@ -121,7 +121,7 @@
 
 		JMP label14
 	label13:
-		MOV CX, [BX-2]      ; j accessed 
+		MOV CX, [BP-2]      ; j accessed 
 		PUSH CX
 
 		MOV CX, 8
@@ -148,7 +148,7 @@
 
 		JMP label19
 	label18:
-		MOV CX, [BX]      ; i accessed 
+		MOV CX, [BP]      ; i accessed 
 		PUSH CX
 
 		MOV CX, 5
@@ -179,8 +179,8 @@
 		PUSH CX
 
 		POP AX
-		MOV [BX-4], AX
-		PUSH [BX-4]
+		MOV [BP-4], AX
+		PUSH [BP-4]
 
 		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
