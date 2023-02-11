@@ -120,7 +120,7 @@
         if(total_params>0){
             code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n"; 
         }
-        code +="\t\tPOP BP\t; restoring BP";
+        code +="\t\tMOV SP, BP\n";
         write_in_code_segment(code);
 
         if(function->get_name() == "main"){
@@ -845,7 +845,16 @@ statement : var_declaration {
             if(!prev){
                 write_error("Undeclared variable '"+ $3->get_name()+"'");
             }else{
-                string code = "\t\tPOP AX\n";
+                int stack_offset = prev->get_stack_offset();
+                string code = "";
+                if(stack_offset == -1){
+                    code += "\t\tMOV AX, "+$3->get_name()+"\n";
+                }else if(stack_offset == 0){
+                    code += "\t\tMOV AX, [BX]\n";
+                }else{
+                    code += "\t\tMOV AX, [BX -" + to_string(stack_offset) + "] \n";
+                }
+                
                 code += "\t\tCALL PRINT_NUMBER\n";
                 code += "\t\tCALL NEWLINE\n"; 
                 write_in_code_segment(code);
@@ -1128,7 +1137,7 @@ rel_expression : simple_expression {
             code += "\t\tJMP "+ elseLabel+" \n";
             code += "\t"+ ifLabel+":\n";
             code += "\t\tPUSH 1\n";
-            code += "\t"+ elseLabel+":\n";
+            code += "\t"+ elseLabel+":";
 
             write_in_code_segment(code);
     }

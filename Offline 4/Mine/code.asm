@@ -52,13 +52,12 @@
 	label1:
 		PUSH 1
 	label2:
-
 		POP AX
 		CMP AX, 0
 		JNE label3
 		JMP label4
 	label3:
-		POP AX
+		MOV AX, [BX -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -79,19 +78,18 @@
 	label5:
 		PUSH 1
 	label6:
-
 		POP AX
 		CMP AX, 0
 		JNE label7
 		JMP label8
 	label7:
-		POP AX
+		MOV AX, [BX]
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 		JMP label9
 	label8:
-		POP AX
+		MOV AX, [BX -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -112,13 +110,12 @@
 	label10:
 		PUSH 1
 	label11:
-
 		POP AX
 		CMP AX, 0
 		JNE label12
 		JMP label13
 	label12:
-		POP AX
+		MOV AX, [BX -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -140,13 +137,12 @@
 	label15:
 		PUSH 1
 	label16:
-
 		POP AX
 		CMP AX, 0
 		JNE label17
 		JMP label18
 	label17:
-		POP AX
+		MOV AX, [BX -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -168,13 +164,12 @@
 	label20:
 		PUSH 1
 	label21:
-
 		POP AX
 		CMP AX, 0
 		JNE label22
 		JMP label23
 	label22:
-		POP AX
+		MOV AX, [BX]
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -187,7 +182,7 @@
 		MOV [BX-4], AX
 		PUSH [BX-4]
 
-		POP AX
+		MOV AX, [BX -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -198,7 +193,8 @@
 		PUSH CX
 
 		ADD SP, 6	;freeing the stack of the local variables
-		POP BP	; restoring BP
+		MOV SP, BP
+
 		MOV AX, 4CH
 		INT 21H
 
