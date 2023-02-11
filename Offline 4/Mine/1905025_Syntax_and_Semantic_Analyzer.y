@@ -850,9 +850,9 @@ statement : var_declaration {
                 if(stack_offset == -1){
                     code += "\t\tMOV AX, "+$3->get_name()+"\n";
                 }else if(stack_offset == 0){
-                    code += "\t\tMOV AX, [BX]\n";
+                    code += "\t\tMOV AX, [BP]\n";
                 }else{
-                    code += "\t\tMOV AX, [BX -" + to_string(stack_offset) + "] \n";
+                    code += "\t\tMOV AX, [BP -" + to_string(stack_offset) + "] \n";
                 }
                 
                 code += "\t\tCALL PRINT_NUMBER\n";

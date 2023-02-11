@@ -57,7 +57,7 @@
 		JNE label3
 		JMP label4
 	label3:
-		MOV AX, [BX -2] 
+		MOV AX, [BP -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -83,13 +83,13 @@
 		JNE label7
 		JMP label8
 	label7:
-		MOV AX, [BX]
+		MOV AX, [BP]
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
 		JMP label9
 	label8:
-		MOV AX, [BX -4] 
+		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -115,7 +115,7 @@
 		JNE label12
 		JMP label13
 	label12:
-		MOV AX, [BX -4] 
+		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -142,7 +142,7 @@
 		JNE label17
 		JMP label18
 	label17:
-		MOV AX, [BX -2] 
+		MOV AX, [BP -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -169,7 +169,7 @@
 		JNE label22
 		JMP label23
 	label22:
-		MOV AX, [BX]
+		MOV AX, [BP]
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
@@ -182,7 +182,7 @@
 		MOV [BX-4], AX
 		PUSH [BX-4]
 
-		MOV AX, [BX -4] 
+		MOV AX, [BP -4] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
