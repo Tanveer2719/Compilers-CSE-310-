@@ -3,6 +3,10 @@
 .DATA
 	CR EQU 0DH
 	NL EQU 0AH
+	i DW ? 	;global variable i declared
+	j DW ? 	;global variable j declared
+
+
 .CODE
 	main PROC
 
@@ -10,190 +14,222 @@
 		MOV DS, AX
 		PUSH BP
 		MOV BP, SP 
-
-
-		SUB SP, 2  	;variable i declared 
-		SUB SP, 2  	;variable j declared 
 		SUB SP, 2  	;variable k declared 
-		MOV CX, 3
+		SUB SP, 2  	;variable ll declared 
+		SUB SP, 2  	;variable m declared 
+		SUB SP, 2  	;variable n declared 
+		SUB SP, 2  	;variable o declared 
+		SUB SP, 2  	;variable p declared 
+		MOV CX, 1
+		PUSH CX
+
+		POP AX
+		MOV i, AX 
+		PUSH i
+
+		MOV AX, i
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, 5
+		PUSH CX
+
+		MOV CX, 8
+		PUSH CX
+
+		POP AX		;8 popped
+		POP CX		;5 popped
+		ADD CX, AX
+		PUSH CX
+
+		POP AX
+		MOV j, AX 
+		PUSH j
+
+		MOV AX, j
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, i       ; i accessed
+		PUSH CX
+
+		MOV CX, 2
+		PUSH CX
+
+		MOV CX, j       ; j accessed
+		PUSH CX
+
+		POP CX
+		POP AX
+		CWD
+		MUL CX
+		PUSH AX
+
+		POP AX		;2*j popped
+		POP CX		;i popped
+		ADD CX, AX
 		PUSH CX
 
 		POP AX
 		MOV [BP-2], AX
 		PUSH [BP-2]
 
-		MOV CX, 8
+		MOV AX, [BP -2] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BP-2]      ; k accessed 
 		PUSH CX
 
+		MOV CX, 9
+		PUSH CX
+
+		POP CX
 		POP AX
-		MOV [BP-4], AX
-		PUSH [BP-4]
-
-		MOV CX, 6
-		PUSH CX
+		CWD
+		XOR DX, DX	;clearing DX
+		DIV CX
+		PUSH DX
 
 		POP AX
 		MOV [BP-6], AX
 		PUSH [BP-6]
 
-		MOV CX, [BP-2]      ; i accessed 
+		MOV AX, [BP -6] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BP-6]      ; m accessed 
 		PUSH CX
 
-		MOV CX, 3
+		MOV CX, [BP-4]      ; ll accessed 
 		PUSH CX
 
-		POP BX		; 3 popped
-		POP AX		; i popped
+		POP BX		; ll popped
+		POP AX		; m popped
 		;CHECKING IF
 		CMP AX, BX
-		JE label1
+		JLE label1
 		PUSH 0
 		JMP label2 
 	label1:
 		PUSH 1
 	label2:
 		POP AX
-		CMP AX, 0
-		JNE label3
-		JMP label4
-	label3:
-		MOV AX, [BP -4] 
+		MOV [BP-8], AX
+		PUSH [BP-8]
+
+		MOV AX, [BP -8] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-	label4:
-		MOV CX, [BP-4]      ; j accessed 
+		MOV CX, i       ; i accessed
 		PUSH CX
 
-		MOV CX, 8
+		MOV CX, j       ; j accessed
 		PUSH CX
 
-		POP BX		; 8 popped
-		POP AX		; j popped
-		;CHECKING IF
-		CMP AX, BX
-		JL label5
-		PUSH 0
-		JMP label6 
-	label5:
-		PUSH 1
-	label6:
-		POP AX
-		CMP AX, 0
-		JNE label7
-		JMP label8
-	label7:
-		MOV AX, [BP -2] 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label9
-	label8:
-		MOV AX, [BP -6] 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-	label9:
-		MOV CX, [BP-6]      ; k accessed 
-		PUSH CX
-
-		MOV CX, 6
-		PUSH CX
-
-		POP BX		; 6 popped
-		POP AX		; k popped
-		;CHECKING IF
-		CMP AX, BX
-		JNE label10
-		PUSH 0
-		JMP label11 
-	label10:
-		PUSH 1
-	label11:
-		POP AX
-		CMP AX, 0
-		JNE label12
-		JMP label13
-	label12:
-		MOV AX, [BP -6] 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label14
-	label13:
-		MOV CX, [BP-4]      ; j accessed 
-		PUSH CX
-
-		MOV CX, 8
-		PUSH CX
-
-		POP BX		; 8 popped
-		POP AX		; j popped
-		;CHECKING IF
-		CMP AX, BX
-		JG label15
-		PUSH 0
-		JMP label16 
-	label15:
-		PUSH 1
-	label16:
-		POP AX
-		CMP AX, 0
-		JNE label17
-		JMP label18
-	label17:
-		MOV AX, [BP -4] 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label19
-	label18:
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
-
-		MOV CX, 5
-		PUSH CX
-
-		POP BX		; 5 popped
+		POP BX		; j popped
 		POP AX		; i popped
 		;CHECKING IF
 		CMP AX, BX
-		JL label20
+		JNE label3
 		PUSH 0
-		JMP label21 
-	label20:
+		JMP label4 
+	label3:
 		PUSH 1
-	label21:
+	label4:
 		POP AX
-		CMP AX, 0
-		JNE label22
-		JMP label23
-	label22:
+		MOV [BP-10], AX
+		PUSH [BP-10]
+
+		MOV AX, [BP -10] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BP-8]      ; n accessed 
+		PUSH CX
+
+		MOV CX, [BP-10]      ; o accessed 
+		PUSH CX
+
+		POP BX		; o popped
+		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JNE label5 
+		CMP BX, 0		; if ax = 1
+		JNE label5 
+		MOV AX, 0
+		JMP label6 
+	label5: 
+		MOV AX, 1
+	label6: 
+		PUSH AX
+
+		POP AX
+		MOV [BP-12], AX
+		PUSH [BP-12]
+
+		MOV AX, [BP -12] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BP-8]      ; n accessed 
+		PUSH CX
+
+		MOV CX, [BP-10]      ; o accessed 
+		PUSH CX
+
+		POP BX		; o popped
+		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JE label7 
+		CMP BX, 0		; if ax = 1
+		JE label7 
+		MOV AX, 1
+		JMP label8 
+	label7: 
+		MOV AX, 0
+	label8: 
+		PUSH AX
+
+		POP AX
+		MOV [BP-12], AX
+		PUSH [BP-12]
+
+		MOV AX, [BP -12] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		INC [BP-12]      ; p accessed 
+		PUSH [BP-12]
+
+		MOV AX, [BP -12] 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV CX, [BP-12]      ; p accessed 
+		PUSH CX
+
+		POP AX			; p popped
+		NEG AX
+		PUSH AX
+
+		POP AX
+		MOV [BP-2], AX
+		PUSH [BP-2]
+
 		MOV AX, [BP -2] 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		JMP label24
-	label23:
 		MOV CX, 0
 		PUSH CX
 
-		POP AX
-		MOV [BP-6], AX
-		PUSH [BP-6]
-
-		MOV AX, [BP -6] 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-	label24:
-	label19:
-	label14:
-		MOV CX, 0
-		PUSH CX
-
-		ADD SP, 6	;freeing the stack of the local variables
+		ADD SP, 12	;freeing the stack of the local variables
 		MOV SP, BP
+
+
 
 		MOV AX, 4CH
 		INT 21H
