@@ -196,10 +196,11 @@
 %union
         semrec{
     SymbolInfo* symbolInfo;
+    int line;
 }
 
 %token<symbolInfo> IF RPAREN LCURL PRINTLN RSQUARE COMMA SEMICOLON RCURL LSQUARE INCOP RELOP NOT LPAREN ASSIGNOP LOGICOP BITOP FOR DO INT FLOAT VOID SWITCH ADDOP DEFAULT ELSE WHILE BREAK CHAR DOUBLE DECOP RETURN CASE CONTINUE CONST_CHAR CONST_INT CONST_FLOAT PRINT ID MULOP THEN
-%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement if_block 
+%type<symbolInfo> start program unit var_declaration func_declaration func_definition parameter_list declaration_list type_specifier statements statement compound_statement logic_expression variable expression rel_expression simple_expression term unary_expression factor arguments argument_list expression_statement if_block init_for check_boolean
 
 // PRECEDENCE DECLARATION
 %left ADDOP MULOP
@@ -742,6 +743,30 @@ if_block: {
 
 } 
 
+init_for: {
+    string code = "";
+    string for_label = new_label();
+    code += "\t" + for_label + ":";
+    write_in_code_segment(code);
+    $$ = new SymbolInfo(for_label, "LABEL"); 
+}
+
+check_boolean: {
+    string end_label = new_label();
+    string bypass_label = new_label();
+
+    string code = "\t\tPOP AX\n";
+    code += "\t\tCMP AX, 0\n";
+    code += "\t\tJNE " + bypass_label + "\n";
+    code += "\t\tJMP " + end_label + "\n";  // if false go to the end of the loop
+    code += "\t" + bypass_label + ":";
+    write_in_code_segment(code);
+
+    $$ = new SymbolInfo(end_label, "LABEL");
+}
+
+
+
 statement : var_declaration {
             // write_to_log("statement", "var_declaration");
             //write_to_console("statement", "var_declaration");
@@ -772,17 +797,29 @@ statement : var_declaration {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1  });
     }
-        | FOR LPAREN expression_statement {isVoid($3);} expression_statement {isVoid($5);} expression {isVoid($7);} RPAREN statement {
-            /* check if the expression statement and the expression has void type specifiers */
+        | FOR LPAREN expression_statement init_for expression_statement check_boolean {$<line>$ = end_line_of_code_segment;} expression {
+            string for_label = $4->get_name();
+            string end_label = $6->get_name();
 
-            // write_to_log("statement", "FOR LPAREN expression_statement expression_statement expression RPAREN statement");
-            //write_to_console("statement", "FOR LPAREN expression_statement expression statement_expression RPAREN statement");
-            
+            // string code = "\t\tPOP AX\n";
+            string code = "\t\tJMP " + for_label + "\n";
+            code += "\t" + end_label + ":";
+
+            write_in_code_segment(code);
+
+            end_line_of_code_segment = $<line>7;
+
+        } RPAREN statement {
+            /* check if the expression statement and the expression has void type specifiers */            
             $$ = new SymbolInfo("","statement");
-            $$->set_name(stringconcat({$1,$2,$3,$5,$7,$9,$10}));
+            $$->set_name(stringconcat({$1,$2,$3,$5,$8,$10,$11}));
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($10->get_end_line());
-            $$->add_child({$1,$2,$3,$5,$7,$9,$10});
+            $$->set_end_line($11->get_end_line());
+            $$->add_child({$1,$2,$3,$5,$8,$10,$11});
+
+            end_line_of_code_segment = total_line_in_assembly;
+            delete $4;
+            delete $6;
     }
         | IF LPAREN expression RPAREN if_block statement %prec THEN {
             /* conflict */
@@ -821,15 +858,24 @@ statement : var_declaration {
             write_in_code_segment(code);
 
         }
-        | WHILE LPAREN expression {isVoid($3);} RPAREN statement {
+        | WHILE LPAREN init_for expression check_boolean RPAREN statement {
             // write_to_log("statement", "WHILE LPAREN expression RPAREN statement");
             //write_to_console("statement", "WHILE LPAREN expression RPAREN statement");
             
             $$ = new SymbolInfo("","statement");
-            $$->set_name(stringconcat({$1,$2,$3,$5,$6}));
+            $$->set_name(stringconcat({$1,$2,$4,$6,$7}));
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($6->get_end_line());
-            $$->add_child({$1,$2,$3,$5,$6});
+            $$->set_end_line($7->get_end_line());
+            $$->add_child({$1,$2,$4,$6,$7});
+
+            string for_label = $3->get_name();
+            string end_label = $5->get_name();
+
+            // string code = "\t\tPOP AX\n";
+            string code = "\t\tJMP " + for_label + "\n";
+            code += "\t" + end_label + ":";
+
+            write_in_code_segment(code);
 
         }
         | PRINTLN LPAREN ID RPAREN SEMICOLON {
