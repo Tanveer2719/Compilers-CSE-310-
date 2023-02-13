@@ -50,7 +50,6 @@
 		CALL NEWLINE
 
 		INC [BP - 2]		; i++
-		INC AX		; ax++
 
 		JMP label1
 	label4:
@@ -105,8 +104,7 @@
 		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
-		DEC [BP-6]      ; k accessed 
-		PUSH [BP-6]
+		DEC [BP - 6]		; k++
 
 		JMP label6
 	label9:
@@ -133,8 +131,7 @@
 		PUSH [BP-8]
 
 	label11:
-		DEC [BP-6]      ; k accessed 
-		PUSH [BP-6]
+		DEC [BP - 6]		; k++
 
 		POP AX
 		CMP AX, 0

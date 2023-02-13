@@ -870,9 +870,11 @@ statement : var_declaration {
             string code = "\t\tPOP AX\n";
             
             if($4->get_name() == "variableINCOP"){
-                code += "\t\tDEC AX\n"; 
+                code += "\t\tDEC AX\n";
+                cout<<"dec ax"<<endl; 
             }else if($4->get_name() == "variableDECOP"){
                 code += "\t\tINC AX\n";
+                cout<<"inc ax"<<endl;
             }
             code += "\t\tCMP AX, 0\n";
             code += "\t\tJNE " + bypass_label + "\n";
@@ -1494,11 +1496,11 @@ factor : variable {
                     code += "\t\tPUSH BP\t\t ; save BP \n";
                     code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
                     code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
-                    code += "\t\tMOV AX, [BP]\t\t; ax = [bp]\n";
+                    code += "\t\tINC, [BP]\t\t;  [bp] ++ \n";
                     code += "\t\tPOP BP\n";
                 }else {
                     // global
-                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                    code += "\t\INC " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
                 }
             } else{
                 // it is a variable
@@ -1514,7 +1516,7 @@ factor : variable {
                 }
             }
 
-            code += "\t\tINC AX\t\t; ax++\n";
+            // code += "\t\tINC AX\t\t; ax++\n";
             // code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
@@ -1532,21 +1534,51 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
+            // search the variable in the symboltable
             SymbolInfo* prev = symboltable->look_up($1->get_name());
+            // find its stack_offset
             int stack_offset = prev->get_stack_offset();
+            // find the size
+            int size = prev->get_size();
+            
             string code = "";
-            if(stack_offset == -1){
-                code +="\t\tDEC "+ $1->get_name() + "       ; " + $1->get_name() + " ++\n"; 
-                code +="\t\tPUSH "+ $1->get_name()+"\n";
-            }else{
-                if(stack_offset == 0){
-                    code += "\t\tDEC [BP]      ; "+ $1->get_name() + " accessed \n";
-                    code += "\t\tPUSH [BP]\n";
+            if(size > 0){
+                // it is an array 
+                // the array index will be at the top of the stack
+                // pop the index
+                code += "\t\tPOP AX\t\t; get the array index\n";
+                code += "\t\tMOV BX, 2\n";
+                code += "\t\tMUL BX\t\t; get the actual position of the index\n";
+                code += "\t\tMOV BX, AX\n";
+
+                if(stack_offset != -1 ){
+                    // not global
+                    code += "\t\tPUSH BP\t\t ; save BP \n";
+                    code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
+                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
+                    code += "\t\tDEC, [BP]\t\t;  [bp] ++ \n";
+                    code += "\t\tPOP BP\n";
+                }else {
+                    // global
+                    code += "\t\tDEC " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                }
+            } else{
+                // it is a variable
+                if(stack_offset == -1){
+                    // code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
+                    code += "\t\tDEC $1->get_name() \t\t; " + $1->get_name() + "++\n";
+                }else if(stack_offset == 0){
+                    // code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
+                    code += "\t\tDEC [BP]\t\t; " +$1->get_name()+"++ \n";
                 }else{
-                    code +="\t\tDEC [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
-                    code +="\t\tPUSH [BP-" +to_string(stack_offset)+"]\n";
+                    // code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
+                   code += "\t\tDEC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"++\n";
                 }
             }
+
+            // code += "\t\tINC AX\t\t; ax++\n";
+            // code += "\t\tPUSH AX\n";
+
             write_in_code_segment(code);
         }
         | ID LPAREN argument_list RPAREN {
