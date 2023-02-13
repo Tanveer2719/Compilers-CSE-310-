@@ -16,18 +16,18 @@
 		SUB SP, 2  	;variable j declared 
 		SUB SP, 2  	;variable k declared 
 		SUB SP, 2  	;variable ll declared 
-		MOV CX, 0
+		MOV CX, 0		 ;integer found
 		PUSH CX
 
 		POP AX
-		MOV [BP-2], AX
+		MOV [BP-2], AX		; move to i
 		PUSH [BP-2]
 
-		label1:
+	label1:
 		MOV CX, [BP-2]      ; i accessed 
 		PUSH CX
 
-		MOV CX, 6
+		MOV CX, 6		 ;integer found
 		PUSH CX
 
 		POP BX		; 6 popped
@@ -45,34 +45,35 @@
 		JNE label5
 		JMP label4
 	label5:
-		MOV AX, [BP -2] 
+		MOV AX, [BP -2]		; ax =  i 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		INC [BP-2]      ; i accessed 
-		PUSH [BP-2]
+		POP AX		; get the value of i
+		INC AX		; ax++
+		PUSH AX
 
 		JMP label1
 	label4:
-		MOV CX, 4
+		MOV CX, 4		 ;integer found
 		PUSH CX
 
 		POP AX
-		MOV [BP-6], AX
+		MOV [BP-6], AX		; move to k
 		PUSH [BP-6]
 
-		MOV CX, 6
+		MOV CX, 6		 ;integer found
 		PUSH CX
 
 		POP AX
-		MOV [BP-8], AX
+		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
-		label6:
+	label6:
 		MOV CX, [BP-6]      ; k accessed 
 		PUSH CX
 
-		MOV CX, 0
+		MOV CX, 0		 ;integer found
 		PUSH CX
 
 		POP BX		; 0 popped
@@ -93,7 +94,7 @@
 		MOV CX, [BP-8]      ; ll accessed 
 		PUSH CX
 
-		MOV CX, 3
+		MOV CX, 3		 ;integer found
 		PUSH CX
 
 		POP AX		;3 popped
@@ -102,7 +103,7 @@
 		PUSH CX
 
 		POP AX
-		MOV [BP-8], AX
+		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
 		DEC [BP-6]      ; k accessed 
@@ -110,29 +111,29 @@
 
 		JMP label6
 	label9:
-		MOV AX, [BP -8] 
+		MOV AX, [BP -8]		; ax =  ll 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV AX, [BP -6] 
+		MOV AX, [BP -6]		; ax =  k 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, 4
+		MOV CX, 4		 ;integer found
 		PUSH CX
 
 		POP AX
-		MOV [BP-6], AX
+		MOV [BP-6], AX		; move to k
 		PUSH [BP-6]
 
-		MOV CX, 6
+		MOV CX, 6		 ;integer found
 		PUSH CX
 
 		POP AX
-		MOV [BP-8], AX
+		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
-		label11:
+	label11:
 		DEC [BP-6]      ; k accessed 
 		PUSH [BP-6]
 
@@ -144,7 +145,7 @@
 		MOV CX, [BP-8]      ; ll accessed 
 		PUSH CX
 
-		MOV CX, 3
+		MOV CX, 3		 ;integer found
 		PUSH CX
 
 		POP AX		;3 popped
@@ -153,20 +154,20 @@
 		PUSH CX
 
 		POP AX
-		MOV [BP-8], AX
+		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
 		JMP label11
 	label12:
-		MOV AX, [BP -8] 
+		MOV AX, [BP -8]		; ax =  ll 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV AX, [BP -6] 
+		MOV AX, [BP -6]		; ax =  k 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, 0
+		MOV CX, 0		 ;integer found
 		PUSH CX
 
 		ADD SP, 8	;freeing the stack of the local variables

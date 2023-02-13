@@ -765,8 +765,6 @@ check_boolean: {
     $$ = new SymbolInfo(end_label, "LABEL");
 }
 
-
-
 statement : var_declaration {
             // write_to_log("statement", "var_declaration");
             //write_to_console("statement", "var_declaration");
@@ -858,24 +856,50 @@ statement : var_declaration {
             write_in_code_segment(code);
 
         }
-        | WHILE LPAREN init_for expression check_boolean RPAREN statement {
-            // write_to_log("statement", "WHILE LPAREN expression RPAREN statement");
-            //write_to_console("statement", "WHILE LPAREN expression RPAREN statement");
+        | WHILE LPAREN {
+            string code = "";
+            string while_label = new_label();
+            code += "\t" + while_label + ":";
+            write_in_code_segment(code);
+            $<symbolInfo>$ = new SymbolInfo(while_label, "LABEL");
+
+        } expression {
+            string end_label = new_label();
+            string bypass_label = new_label();
+
+            string code = "\t\tPOP AX\n";
             
+            if($4->get_name() == "variableINCOP"){
+                code += "\t\tDEC AX\n"; 
+            }else if($4->get_name() == "variableDECOP"){
+                code += "\t\tINC AX\n";
+            }
+            code += "\t\tCMP AX, 0\n";
+            code += "\t\tJNE " + bypass_label + "\n";
+            code += "\t\tJMP " + end_label + "\n";  // if false go to the end of the loop
+            code += "\t" + bypass_label + ":";
+            write_in_code_segment(code);
+
+            $<symbolInfo>$ = new SymbolInfo(end_label, "LABEL");
+            
+        } RPAREN statement {
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1,$2,$4,$6,$7}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($7->get_end_line());
             $$->add_child({$1,$2,$4,$6,$7});
 
-            string for_label = $3->get_name();
-            string end_label = $5->get_name();
+            string for_label = $<symbolInfo>3->get_name();
+            string end_label = $<symbolInfo>5->get_name();
 
             // string code = "\t\tPOP AX\n";
             string code = "\t\tJMP " + for_label + "\n";
             code += "\t" + end_label + ":";
 
             write_in_code_segment(code);
+
+            delete $<symbolInfo>3;
+            delete $<symbolInfo>5;
 
         }
         | PRINTLN LPAREN ID RPAREN SEMICOLON {
@@ -894,11 +918,11 @@ statement : var_declaration {
                 int stack_offset = prev->get_stack_offset();
                 string code = "";
                 if(stack_offset == -1){
-                    code += "\t\tMOV AX, "+$3->get_name()+"\n";
+                    code += "\t\tMOV AX, "+$3->get_name()+"\t\t; ax =  "+$3->get_name()+"\n";
                 }else if(stack_offset == 0){
-                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tMOV AX, [BP]\t\t; ax =  "+$3->get_name()+"\n";
                 }else{
-                    code += "\t\tMOV AX, [BP -" + to_string(stack_offset) + "] \n";
+                    code += "\t\tMOV AX, [BP -" + to_string(stack_offset) + "]\t\t; ax =  "+$3->get_name()+" \n";
                 }
                 
                 code += "\t\tCALL PRINT_NUMBER\n";
@@ -1058,10 +1082,10 @@ expression : logic_expression {
                      
                     if(! $1->is_array()){
                         if(stack_offset == 0){
-                            code += "\t\tMOV [BP], AX\n";
+                            code += "\t\tMOV [BP], AX\t\t; move to "+$1->get_name()+"\n";
                             code += "\t\tPUSH [BP]\n";
                         }else{
-                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
+                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\t\t; move to "+$1->get_name()+"\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
                         }
                         write_in_code_segment(code);
                     }
@@ -1418,7 +1442,7 @@ factor : variable {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
 
-            write_in_code_segment("\t\tMOV CX, " + $1->get_name()+"\n\t\tPUSH CX\n");
+            write_in_code_segment("\t\tMOV CX, " + $1->get_name()+"\t\t ;integer found\n\t\tPUSH CX\n");
         }
         | CONST_FLOAT {
             // write_to_log("factor", "CONST_FLOAT");
@@ -1448,21 +1472,42 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
+            // search the variable in the symboltable
             SymbolInfo* prev = symboltable->look_up($1->get_name());
+            // find its stack_offset
             int stack_offset = prev->get_stack_offset();
+            // find the size
+            int size = prev->get_size();
+            
             string code = "";
-            if(stack_offset == -1){
-                code +="\t\tINC "+ $1->get_name() + "       ; " + $1->get_name() + " ++\n"; 
-                code +="\t\tPUSH "+ $1->get_name()+"\n";
-            }else{
-                if(stack_offset == 0){
-                    code += "\t\tINC [BP]      ; "+ $1->get_name() + " accessed \n";
-                    code += "\t\tPUSH [BP]\n";
-                }else{
-                    code +="\t\tINC [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
-                    code +="\t\tPUSH [BP-" +to_string(stack_offset)+"]\n";
+            if(size > 0){
+                // it is an array 
+                // the array index will be at the top of the stack
+                // pop the index
+                code += "\t\tPOP AX\t\t; get the array index\n";
+                code += "\t\tMOV BX, 2\n";
+                code += "\t\tMUL BX\t\t; get the actual position of the index\n";
+                code += "\t\tMOV BX, AX\n";
+
+                if(stack_offset != -1 ){
+                    // not global
+                    code += "\t\tPUSH BP\t\t ; save BP \n";
+                    code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
+                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
+                    code += "\t\tMOV AX, [BP]\t\t; ax = [bp]\n";
+                    code += "\t\tPOP BP\n";
+                }else {
+                    // global
+                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
                 }
+            } else{
+                // it is a variable
+                // the value will be remained at the top of the stack 
+                code += "\t\tPOP AX\t\t; get the value of "+ $1->get_name() + "\n";
             }
+
+            code += "\t\tINC AX\t\t; ax++\n";
+            code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
         }
