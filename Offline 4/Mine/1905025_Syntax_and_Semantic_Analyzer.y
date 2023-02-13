@@ -1502,12 +1502,17 @@ factor : variable {
                 }
             } else{
                 // it is a variable
-                // the value will be remained at the top of the stack 
-                code += "\t\tPOP AX\t\t; get the value of "+ $1->get_name() + "\n";
+                if(stack_offset == -1){
+                    code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
+                }else if(stack_offset == 0){
+                    code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
+                }else{
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
+                }
             }
 
             code += "\t\tINC AX\t\t; ax++\n";
-            code += "\t\tPUSH AX\n";
+            // code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
         }

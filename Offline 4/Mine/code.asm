@@ -49,9 +49,8 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		POP AX		; get the value of i
+		MOV AX, [BP - 2]		; ax = i
 		INC AX		; ax++
-		PUSH AX
 
 		JMP label1
 	label4:
