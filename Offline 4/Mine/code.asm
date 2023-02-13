@@ -104,7 +104,9 @@
 		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
-		DEC [BP - 6]		; k++
+		DEC [BP - 6]		; k--
+		MOV AX, [BP - 6]
+		PUSH AX
 
 		JMP label6
 	label9:
@@ -131,7 +133,9 @@
 		PUSH [BP-8]
 
 	label11:
-		DEC [BP - 6]		; k++
+		DEC [BP - 6]		; k--
+		MOV AX, [BP - 6]
+		PUSH AX
 
 		POP AX
 		CMP AX, 0

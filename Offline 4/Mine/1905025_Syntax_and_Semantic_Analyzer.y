@@ -1557,27 +1557,32 @@ factor : variable {
                     code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
                     code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
                     code += "\t\tDEC, [BP]\t\t;  [bp] ++ \n";
+                    code += "\t\tMOV AX, [BP]\n";
                     code += "\t\tPOP BP\n";
                 }else {
                     // global
                     code += "\t\tDEC " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\n";
                 }
             } else{
                 // it is a variable
                 if(stack_offset == -1){
                     // code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
-                    code += "\t\tDEC $1->get_name() \t\t; " + $1->get_name() + "++\n";
+                    code += "\t\tDEC $1->get_name() \t\t; " + $1->get_name() + "--\n";
+                    code += "\t\tMOV AX, " + $1->get_name()+"\n";
                 }else if(stack_offset == 0){
                     // code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tDEC [BP]\t\t; " +$1->get_name()+"++ \n";
+                    code += "\t\tDEC [BP]\t\t; " +$1->get_name()+"-- \n";
+                    code += "\t\tMOV AX, [BP]\n";
                 }else{
                     // code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                   code += "\t\tDEC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"++\n";
+                    code += "\t\tDEC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"--\n";
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\n";
                 }
             }
 
             // code += "\t\tINC AX\t\t; ax++\n";
-            // code += "\t\tPUSH AX\n";
+            code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
         }
