@@ -49,7 +49,7 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV AX, [BP - 2]		; ax = i
+		INC[BP - 2]		; i++
 		INC AX		; ax++
 
 		JMP label1
