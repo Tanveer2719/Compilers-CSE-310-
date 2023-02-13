@@ -138,6 +138,7 @@
 		PUSH AX
 
 		POP AX
+		INC AX
 		CMP AX, 0
 		JNE label13
 		JMP label12

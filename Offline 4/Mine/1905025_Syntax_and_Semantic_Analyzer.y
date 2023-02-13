@@ -868,7 +868,6 @@ statement : var_declaration {
             string bypass_label = new_label();
 
             string code = "\t\tPOP AX\n";
-            
             if($4->get_name() == "variableINCOP"){
                 code += "\t\tDEC AX\n";
                 cout<<"dec ax"<<endl; 
@@ -1522,8 +1521,8 @@ factor : variable {
             write_in_code_segment(code);
         }
         | variable DECOP {
-            $$ = new SymbolInfo("", "factor");
-            $$->set_name(stringconcat({$1, $2}));
+            $$ = new SymbolInfo("variableDECOP", "factor");
+            // $$->set_name(stringconcat({$1, $2}));
             
             if(isVoid($1)){
                 $$->set_specifier("error");
