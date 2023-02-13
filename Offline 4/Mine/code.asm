@@ -49,7 +49,7 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		INC[BP - 2]		; i++
+		INC [BP - 2]		; i++
 		INC AX		; ax++
 
 		JMP label1

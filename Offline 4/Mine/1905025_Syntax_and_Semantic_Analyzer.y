@@ -1510,7 +1510,7 @@ factor : variable {
                     code += "\t\tINC [BP]\t\t; " +$1->get_name()+"++ \n";
                 }else{
                     // code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                   code += "\t\tINC[BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"++\n";
+                   code += "\t\tINC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"++\n";
                 }
             }
 
