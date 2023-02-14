@@ -49,7 +49,10 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		INC [BP - 2]		; i++
+		MOV AX, [BP - 2]		; ax = i
+		INC AX		; i++
+		MOV [BP - 2]AX
+		PUSH AX
 
 		JMP label1
 	label4:
@@ -104,8 +107,9 @@
 		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
 
-		DEC [BP - 6]		; k--
-		MOV AX, [BP - 6]
+		MOV AX, [BP - 6]		; ax = k
+		DEC AX		; k--
+		MOV [BP - 6]AX
 		PUSH AX
 
 		JMP label6
@@ -133,8 +137,9 @@
 		PUSH [BP-8]
 
 	label11:
-		DEC [BP - 6]		; k--
-		MOV AX, [BP - 6]
+		MOV AX, [BP - 6]		; ax = k
+		DEC AX		; k--
+		MOV [BP - 6]AX
 		PUSH AX
 
 		POP AX
@@ -236,11 +241,6 @@
 			;else continue
 			JMP POP_WHILE
 			END_POP_WHILE:
-			;Print newline
-			MOV DL, 0DH
-			INT 21H
-			MOV DL, 0AH
-			INT 21H
 			POP AX
 			POP DX
 			POP CX

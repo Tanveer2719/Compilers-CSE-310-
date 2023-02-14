@@ -1495,28 +1495,34 @@ factor : variable {
                     code += "\t\tPUSH BP\t\t ; save BP \n";
                     code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
                     code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
-                    code += "\t\tINC, [BP]\t\t;  [bp] ++ \n";
+                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tINC, AX\t\t;  AX ++ \n";
+                    code += "\t\tMOV [BP], AX\n";
                     code += "\t\tPOP BP\n";
                 }else {
                     // global
-                    code += "\t\INC " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\n";
+                    code += "\t\tINC AX\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                    code += "\t\tMOV " + $1->get_name() + "[BX] , AX \n";
                 }
             } else{
                 // it is a variable
                 if(stack_offset == -1){
-                    // code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
-                    code += "\t\tINC $1->get_name() \t\t; " + $1->get_name() + "++\n";
+                    code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
+                    code += "\t\tINC AX \t\t; " + $1->get_name() + "++\n";
+                    code += "\t\tMOV " + $1->get_name() + ", AX\n";
                 }else if(stack_offset == 0){
-                    // code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tINC [BP]\t\t; " +$1->get_name()+"++ \n";
+                    code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
+                    code += "\t\tINC AX\t\t; " +$1->get_name()+"++ \n";
+                    code += "\t\tMOV [BP],  AX \n";
                 }else{
-                    // code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                   code += "\t\tINC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"++\n";
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
+                    code += "\t\tINC AX\t\t; " +$1->get_name()+"++\n";
+                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "]AX\n";
                 }
             }
 
-            // code += "\t\tINC AX\t\t; ax++\n";
-            // code += "\t\tPUSH AX\n";
+            code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
         }
@@ -1555,32 +1561,33 @@ factor : variable {
                     code += "\t\tPUSH BP\t\t ; save BP \n";
                     code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
                     code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
-                    code += "\t\tDEC, [BP]\t\t;  [bp] ++ \n";
                     code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tDEC, AX\t\t;  AX -- \n";
+                    code += "\t\tMOV [BP], AX\n";
                     code += "\t\tPOP BP\n";
                 }else {
                     // global
-                    code += "\t\tDEC " + $1->get_name() + "[BX]\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
                     code += "\t\tMOV AX, " + $1->get_name() + "[BX]\n";
+                    code += "\t\tDEC AX\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
+                    code += "\t\tMOV " + $1->get_name() + "[BX] , AX \n";
                 }
             } else{
                 // it is a variable
                 if(stack_offset == -1){
-                    // code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
-                    code += "\t\tDEC $1->get_name() \t\t; " + $1->get_name() + "--\n";
-                    code += "\t\tMOV AX, " + $1->get_name()+"\n";
+                    code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
+                    code += "\t\tDEC AX \t\t; " + $1->get_name() + "--\n";
+                    code += "\t\tMOV " + $1->get_name() + ", AX\n";
                 }else if(stack_offset == 0){
-                    // code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tDEC [BP]\t\t; " +$1->get_name()+"-- \n";
-                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
+                    code += "\t\tDEC AX\t\t; " +$1->get_name()+"-- \n";
+                    code += "\t\tMOV [BP],  AX \n";
                 }else{
-                    // code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tDEC [BP - "+to_string(stack_offset)+"]\t\t; " +$1->get_name()+"--\n";
-                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\n";
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
+                    code += "\t\tDEC AX\t\t; " +$1->get_name()+"--\n";
+                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "]AX\n";
                 }
             }
 
-            // code += "\t\tINC AX\t\t; ax++\n";
             code += "\t\tPUSH AX\n";
 
             write_in_code_segment(code);
@@ -1831,11 +1838,11 @@ void print_number(){
         code<<"\t\t\t;else continue\n";
         code<<"\t\t\tJMP POP_WHILE\n";
         code<<"\t\t\tEND_POP_WHILE:\n";
-        code<<"\t\t\t;Print newline\n";
-        code<<"\t\t\tMOV DL, 0DH\n";
-        code<<"\t\t\tINT 21H\n";
-        code<<"\t\t\tMOV DL, 0AH\n";
-        code<<"\t\t\tINT 21H\n";
+        // code<<"\t\t\t;Print newline\n";
+        // code<<"\t\t\tMOV DL, 0DH\n";
+        // code<<"\t\t\tINT 21H\n";
+        // code<<"\t\t\tMOV DL, 0AH\n";
+        // code<<"\t\t\tINT 21H\n";
         code<<"\t\t\tPOP AX\n";
         code<<"\t\t\tPOP DX\n";
         code<<"\t\t\tPOP CX\n";
