@@ -50,8 +50,8 @@
 		CALL NEWLINE
 
 		MOV AX, [BP - 2]		; ax = i
-		INC AX		; i++
-		MOV [BP - 2]AX
+		INC AX		; i--
+		MOV [BP - 2], AX
 		PUSH AX
 
 		JMP label1
@@ -109,7 +109,7 @@
 
 		MOV AX, [BP - 6]		; ax = k
 		DEC AX		; k--
-		MOV [BP - 6]AX
+		MOV [BP - 6], AX
 		PUSH AX
 
 		JMP label6
@@ -139,7 +139,7 @@
 	label11:
 		MOV AX, [BP - 6]		; ax = k
 		DEC AX		; k--
-		MOV [BP - 6]AX
+		MOV [BP - 6], AX
 		PUSH AX
 
 		POP AX
@@ -162,6 +162,11 @@
 		POP AX
 		MOV [BP-8], AX		; move to ll
 		PUSH [BP-8]
+
+		MOV AX, 		 ; ax = 
+		INC AX 		; --
+		MOV , AX
+		PUSH AX
 
 		JMP label11
 	label12:

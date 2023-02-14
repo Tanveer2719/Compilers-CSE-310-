@@ -184,6 +184,62 @@
         }
     }
 
+    void varable_incop_decop_operation(string name, string op){
+        // search the variable in the symboltable
+        SymbolInfo* prev = symboltable->look_up(name);
+        // find its stack_offset
+        int stack_offset = prev->get_stack_offset();
+        // find the size
+        int size = prev->get_size();
+        
+        string code = "";
+        if(size > 0){
+            // it is an array 
+            // the array index will be at the top of the stack
+            // pop the index
+            code += "\t\tPOP AX\t\t; get the array index\n";
+            code += "\t\tMOV BX, 2\n";
+            code += "\t\tMUL BX\t\t; get the actual position of the index\n";
+            code += "\t\tMOV BX, AX\n";
+
+            if(stack_offset != -1 ){
+                // not global
+                code += "\t\tPUSH BP\t\t ; save BP \n";
+                code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
+                code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
+                code += "\t\tMOV AX, [BP]\n";
+                code += "\t\t"+op+" AX\t\t;  AX -- \n";
+                code += "\t\tMOV [BP], AX\n";
+                code += "\t\tPOP BP\n";
+            }else {
+                // global
+                code += "\t\tMOV AX, " + name+ "[BX]\n";
+                code += "\t\t"+op +" AX\t\t ; get ax = "+name+"[bx]\n" ;
+                code += "\t\tMOV " + name + "[BX] , AX \n";
+            }
+        } else{
+            // it is a variable
+            if(stack_offset == -1){
+                code += "\t\tMOV AX, "+name + "\t\t ; ax = " +name+"\n"; 
+                code += "\t\t"+op +" AX \t\t; " + name + "--\n";
+                code += "\t\tMOV " + name + ", AX\n";
+            }else if(stack_offset == 0){
+                code += "\t\tMOV AX, [BP]\t\t; ax = " +name+"\n";
+                code += "\t\t"+op +" AX\t\t; " +name+"-- \n";
+                code += "\t\tMOV [BP],  AX \n";
+            }else{
+                code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
+                code += "\t\t"+op+" AX\t\t; " +name+"--\n";
+                code += "\t\tMOV [BP - "+ to_string(stack_offset) + "], AX\n";
+            }
+        }
+
+        code += "\t\tPUSH AX\n";
+
+        write_in_code_segment(code);
+
+    }
+
     
 
 
@@ -895,6 +951,14 @@ statement : var_declaration {
 
             // string code = "\t\tPOP AX\n";
             string code = "\t\tJMP " + for_label + "\n";
+
+            
+            if($4->get_name() == "variableINCOP"){
+                varable_incop_decop_operation($4->var_name, "DEC"); 
+            }else if($4->get_name() == "variableDECOP"){
+                varable_incop_decop_operation($4->var_name, "INC"); 
+            }
+
             code += "\t" + end_label + ":";
 
             write_in_code_segment(code);
@@ -1460,8 +1524,9 @@ factor : variable {
 
         }
         | variable INCOP {
-            $$ = new SymbolInfo("", "factor");
-            $$->set_name(stringconcat({$1, $2}));
+            $$ = new SymbolInfo("variableINCOP", "factor");
+            // $$->set_name(stringconcat({$1, $2}));
+            $$->var_name = $2->get_name();
 
             if(isVoid($1)){
                 $$->set_specifier("error");
@@ -1473,62 +1538,12 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
-            // search the variable in the symboltable
-            SymbolInfo* prev = symboltable->look_up($1->get_name());
-            // find its stack_offset
-            int stack_offset = prev->get_stack_offset();
-            // find the size
-            int size = prev->get_size();
-            
-            string code = "";
-            if(size > 0){
-                // it is an array 
-                // the array index will be at the top of the stack
-                // pop the index
-                code += "\t\tPOP AX\t\t; get the array index\n";
-                code += "\t\tMOV BX, 2\n";
-                code += "\t\tMUL BX\t\t; get the actual position of the index\n";
-                code += "\t\tMOV BX, AX\n";
-
-                if(stack_offset != -1 ){
-                    // not global
-                    code += "\t\tPUSH BP\t\t ; save BP \n";
-                    code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
-                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
-                    code += "\t\tMOV AX, [BP]\n";
-                    code += "\t\tINC, AX\t\t;  AX ++ \n";
-                    code += "\t\tMOV [BP], AX\n";
-                    code += "\t\tPOP BP\n";
-                }else {
-                    // global
-                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\n";
-                    code += "\t\tINC AX\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
-                    code += "\t\tMOV " + $1->get_name() + "[BX] , AX \n";
-                }
-            } else{
-                // it is a variable
-                if(stack_offset == -1){
-                    code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
-                    code += "\t\tINC AX \t\t; " + $1->get_name() + "++\n";
-                    code += "\t\tMOV " + $1->get_name() + ", AX\n";
-                }else if(stack_offset == 0){
-                    code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tINC AX\t\t; " +$1->get_name()+"++ \n";
-                    code += "\t\tMOV [BP],  AX \n";
-                }else{
-                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tINC AX\t\t; " +$1->get_name()+"++\n";
-                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "]AX\n";
-                }
-            }
-
-            code += "\t\tPUSH AX\n";
-
-            write_in_code_segment(code);
+            varable_incop_decop_operation($1->get_name(), "INC");
         }
         | variable DECOP {
             $$ = new SymbolInfo("variableDECOP", "factor");
             // $$->set_name(stringconcat({$1, $2}));
+            $$->var_name = $2->get_name();
             
             if(isVoid($1)){
                 $$->set_specifier("error");
@@ -1539,58 +1554,9 @@ factor : variable {
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
 
-            // search the variable in the symboltable
-            SymbolInfo* prev = symboltable->look_up($1->get_name());
-            // find its stack_offset
-            int stack_offset = prev->get_stack_offset();
-            // find the size
-            int size = prev->get_size();
+            varable_incop_decop_operation($1->get_name(), "DEC");
+
             
-            string code = "";
-            if(size > 0){
-                // it is an array 
-                // the array index will be at the top of the stack
-                // pop the index
-                code += "\t\tPOP AX\t\t; get the array index\n";
-                code += "\t\tMOV BX, 2\n";
-                code += "\t\tMUL BX\t\t; get the actual position of the index\n";
-                code += "\t\tMOV BX, AX\n";
-
-                if(stack_offset != -1 ){
-                    // not global
-                    code += "\t\tPUSH BP\t\t ; save BP \n";
-                    code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
-                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
-                    code += "\t\tMOV AX, [BP]\n";
-                    code += "\t\tDEC, AX\t\t;  AX -- \n";
-                    code += "\t\tMOV [BP], AX\n";
-                    code += "\t\tPOP BP\n";
-                }else {
-                    // global
-                    code += "\t\tMOV AX, " + $1->get_name() + "[BX]\n";
-                    code += "\t\tDEC AX\t\t ; get ax = "+$1->get_name()+"[bx]\n" ;
-                    code += "\t\tMOV " + $1->get_name() + "[BX] , AX \n";
-                }
-            } else{
-                // it is a variable
-                if(stack_offset == -1){
-                    code += "\t\tMOV AX, "+$1->get_name() + "\t\t ; ax = " +$1->get_name()+"\n"; 
-                    code += "\t\tDEC AX \t\t; " + $1->get_name() + "--\n";
-                    code += "\t\tMOV " + $1->get_name() + ", AX\n";
-                }else if(stack_offset == 0){
-                    code += "\t\tMOV AX, [BP]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tDEC AX\t\t; " +$1->get_name()+"-- \n";
-                    code += "\t\tMOV [BP],  AX \n";
-                }else{
-                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +$1->get_name()+"\n";
-                    code += "\t\tDEC AX\t\t; " +$1->get_name()+"--\n";
-                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "]AX\n";
-                }
-            }
-
-            code += "\t\tPUSH AX\n";
-
-            write_in_code_segment(code);
         }
         | ID LPAREN argument_list RPAREN {
             $$ = new SymbolInfo("", "factor");
