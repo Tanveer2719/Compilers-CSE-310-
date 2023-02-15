@@ -29,6 +29,7 @@
     int stack_offset = 2;
 
     string function_name = "";
+    bool has_return = false;
 
     
     /*
@@ -89,26 +90,32 @@
         end the main procedure
     */
     void end_main(){
-        string text = "\t\tMOV AX, 4CH\n\t\tINT 21H\n";
+        string text ="\t\tMOV SP, BP\n\t\tPOP BP\n";
+        text += "\t\tMOV AX, 4CH\n\t\tINT 21H\n";
         write("code.asm", text, true);
         increase_code_segment(text);
-
     }
 
-    void start_procedure(string id){
+    void start_procedure(string id, string type_specifier){
         function_name = id;
+        
+        if(type_specifier != "VOID"){
+            has_return = true;
+        }
 
         stack_offset = 2;
-        string code = "\t" + id + " PROC\n";
+        string code = "\t" + id + " PROC";
         write("code.asm", code, true);
         increase_code_segment(code);
+
+        cout<<"end_line_of_code_segment: "<<end_line_of_code_segment<<endl;
 
         if(id == "main"){
             declare_main();
         }else{
             code ="\t\t;starting procedure " + id + "\n";
-            code += "\t\tPUSH BP\t;save BP\n";
-            code += "\t\tMOV BP, SP\t;make BP = SP\n";
+            code += "\t\tPUSH BP\t\t;save BP\n";
+            code += "\t\tMOV BP, SP\t\t;make BP = SP\n";
             write("code.asm", code, true);
             increase_code_segment(code); 
         }
@@ -118,18 +125,21 @@
     void end_procedure(SymbolInfo* function, int total_params){
         string code = "";
         if(total_params>0){
-            code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n"; 
+            write_in_code_segment("\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n"); 
         }
-        code +="\t\tMOV SP, BP\n";
-        write_in_code_segment(code);
 
         if(function->get_name() == "main"){
             end_main();
         }
-        else if(function->get_specifier() == "VOID"){
-            code = "\t\tRET\n"; 
+        else {
+            if(! has_return){
+                code += "\t\tMOV SP, BP\n";
+                code += "\t\POP BP\n";
+                code += "\t\tRET\n"; 
+            }
             write_in_code_segment(code);
         }
+        
 
         write("code.asm", "\t" + function->get_name()+ + " ENDP\n", true);
         total_line_in_assembly += 1; 
@@ -139,13 +149,13 @@
     void variable_operation(SymbolInfo* x){
         if(symboltable->get_current_scope_id() != 1){
             if(! x->is_array()){
-                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared ";
+                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared\n";
                 write_in_code_segment(code);
                 symboltable->set_stack_offset(x->get_name(), stack_offset);
                 stack_offset += 2;
             }else{
                 int size = x->get_size();
-                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared ";
+                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared\n";
                 write_in_code_segment(code);
                 symboltable->set_stack_offset(x->get_name(), stack_offset);
                 stack_offset += 2*size;
@@ -185,6 +195,8 @@
     }
 
     void varable_incop_decop_operation(string name, string op){
+
+        // cout<<name <<" "<<op<<endl;
         // search the variable in the symboltable
         SymbolInfo* prev = symboltable->look_up(name);
         // find its stack_offset
@@ -407,21 +419,19 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
 
 
 
-func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_function($2,$1);} {start_procedure($2->get_name());} compound_statement {  
-            //write_to_console("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-            // write_to_log("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-
+func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_function($2,$1);} {start_procedure($2->get_name(), $1->get_name());} compound_statement {  
             $$ = new SymbolInfo("", "func_definition");
             $$->set_name(stringconcat({$1, $2, $3, $4, $5, $8}));
             
             end_procedure($2, total_stack_size_used_in_function);
+            has_return = false;
 
             $$->add_child({$1, $2, $3, $4, $5, $8});
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($8->get_end_line());
         }
 
-        | type_specifier ID LPAREN RPAREN {insert_function($2,$1); } {start_procedure($2->get_name());}compound_statement {   
+        | type_specifier ID LPAREN RPAREN {insert_function($2,$1); } {start_procedure($2->get_name(), $1->get_name());}compound_statement {   
             // write_to_log("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
             //write_to_console("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
 
@@ -429,6 +439,7 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_functio
             $$->set_name(stringconcat({$1, $2, $3, $4, $7}));
 
             end_procedure($2, total_stack_size_used_in_function);
+            has_return = false;
 
             $$->add_child({$1, $2, $3, $4, $7}); 
             $$->set_start_line($1->get_start_line());
@@ -949,19 +960,19 @@ statement : var_declaration {
             string for_label = $<symbolInfo>3->get_name();
             string end_label = $<symbolInfo>5->get_name();
 
-            // string code = "\t\tPOP AX\n";
-            string code = "\t\tJMP " + for_label + "\n";
+            write_in_code_segment("\t\tJMP " + for_label + "\n");
 
             
-            if($4->get_name() == "variableINCOP"){
-                varable_incop_decop_operation($4->var_name, "DEC"); 
-            }else if($4->get_name() == "variableDECOP"){
-                varable_incop_decop_operation($4->var_name, "INC"); 
-            }
+            // cout<<$4->get_name()<<endl;
+            // if($4->get_name() == "variableINCOP"){
+            //     varable_incop_decop_operation($4->get_var_name(), "DEC"); 
+            // }else if($4->get_name() == "variableDECOP"){
+            //     cout<<"called from decop\n";
+            //     varable_incop_decop_operation($4->get_var_name(), "INC"); 
+            // }
 
-            code += "\t" + end_label + ":";
+            write_in_code_segment("\t" + end_label + ":");
 
-            write_in_code_segment(code);
 
             delete $<symbolInfo>3;
             delete $<symbolInfo>5;
@@ -1016,7 +1027,8 @@ statement : var_declaration {
                 int no_of_param = (func != NULL)? func->get_parameters().size() : 0;
                 code += "\t\tMOV SP, BP\n";
                 code += "\t\tPOP BP\n";
-                code += "\t\tRET " + (no_of_param ? to_string(2*no_of_param) : "");
+                // code += "\t\tRET " + (no_of_param ? to_string(2*no_of_param) : "");
+                code += "\t\tRET";
                 write_in_code_segment(code);
             }
     }
@@ -1526,7 +1538,8 @@ factor : variable {
         | variable INCOP {
             $$ = new SymbolInfo("variableINCOP", "factor");
             // $$->set_name(stringconcat({$1, $2}));
-            $$->var_name = $2->get_name();
+            $$->set_var_name($1->get_name());
+
 
             if(isVoid($1)){
                 $$->set_specifier("error");
@@ -1543,7 +1556,7 @@ factor : variable {
         | variable DECOP {
             $$ = new SymbolInfo("variableDECOP", "factor");
             // $$->set_name(stringconcat({$1, $2}));
-            $$->var_name = $2->get_name();
+            $$->set_var_name($1->get_name());
             
             if(isVoid($1)){
                 $$->set_specifier("error");
@@ -1559,14 +1572,12 @@ factor : variable {
             
         }
         | ID LPAREN argument_list RPAREN {
+            // function call
             $$ = new SymbolInfo("", "factor");
+
             if($3->get_name() == ""){
-                // write_to_log("factor", "ID LPAREN RPAREN");
-                //write_to_console("factor", "ID LPAREN RPAREN");
                 $$->add_child({$1,$2,$4});
             }else{
-                // write_to_log("factor", "ID LPAREN argument_list RPAREN");
-                //write_to_console("factor", "ID LPAREN argument_list RPAREN");
                 $$->add_child({$1,$2,$3,$4});
             }
 
@@ -1614,6 +1625,11 @@ factor : variable {
                     }
                 }
             }
+
+            write_in_code_segment("\t\tCALL "+ $1->get_name()+ "\n");
+
+
+
 
         }
         ;
@@ -1721,17 +1737,14 @@ void open_assembly_file(){
     assembly_code<<"\tNL EQU 0AH\n";
     total_line_in_assembly += 5;
     end_line_of_data_segment = total_line_in_assembly;
+    end_line_of_code_segment = total_line_in_assembly;
 
-    // cout<<"end line of data segment = "<<end_line_of_data_segment<<endl;
 
     
     assembly_code<<".CODE\n";
     end_line_of_code_segment = ++total_line_in_assembly;
-    // cout<<"end line of code segment = "<<end_line_of_code_segment<<endl;
 
     
-   // cout<<end_line_of_data_segment<<endl;
-   // cout<<end_line_of_code_segment<<endl;
     assembly_code.close();
 }
 
@@ -1863,6 +1876,11 @@ int main(int argc, char* argv[]){
     print_number();
     
     terminate_assembly_file();
+
+    cout<<"end line of code segment = "<<end_line_of_code_segment<<endl;
+    cout<<"end line of data segment = "<<end_line_of_data_segment<<endl;
+
+
 
     parse_file.close();
     error_file.close();

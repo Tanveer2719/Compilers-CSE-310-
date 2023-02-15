@@ -3,187 +3,44 @@
 .DATA
 	CR EQU 0DH
 	NL EQU 0AH
+	a DW ? 	;global variable a declared
+	b DW ? 	;global variable b declared
+	c DW ? 	;global variable c declared
 .CODE
-	main PROC
+	func_a PROC
+		;starting procedure func_a
+		PUSH BP		;save BP
+		MOV BP, SP		;make BP = SP
 
+		MOV CX, 7		 ;integer found
+		PUSH CX
+		POP AX
+		MOV a, AX 
+		PUSH a
+		MOV CX, a       ; a accessed
+		PUSH CX
+		POP AX
+		MOV SP, BP
+		POP BP
+		RET
+	func_a ENDP
+
+	main PROC
 		MOV AX, @DATA
 		MOV DS, AX
 		PUSH BP
 		MOV BP, SP 
 
 
-		SUB SP, 2  	;variable i declared 
-		SUB SP, 2  	;variable j declared 
-		SUB SP, 2  	;variable k declared 
-		SUB SP, 2  	;variable ll declared 
-		MOV CX, 0		 ;integer found
-		PUSH CX
-
+		CALL func_a
 		POP AX
-		MOV [BP-2], AX		; move to i
-		PUSH [BP-2]
-
-	label1:
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
-
-		MOV CX, 6		 ;integer found
-		PUSH CX
-
-		POP BX		; 6 popped
-		POP AX		; i popped
-		;CHECKING IF
-		CMP AX, BX
-		JL label2
-		PUSH 0
-		JMP label3 
-	label2:
-		PUSH 1
-	label3:
-		POP AX
-		CMP AX, 0
-		JNE label5
-		JMP label4
-	label5:
-		MOV AX, [BP -2]		; ax =  i 
+		MOV a, AX 
+		PUSH a
+		MOV AX, a		; ax =  a
 		CALL PRINT_NUMBER
 		CALL NEWLINE
-
-		MOV AX, [BP - 2]		; ax = i
-		INC AX		; i--
-		MOV [BP - 2], AX
-		PUSH AX
-
-		JMP label1
-	label4:
-		MOV CX, 4		 ;integer found
-		PUSH CX
-
-		POP AX
-		MOV [BP-6], AX		; move to k
-		PUSH [BP-6]
-
-		MOV CX, 6		 ;integer found
-		PUSH CX
-
-		POP AX
-		MOV [BP-8], AX		; move to ll
-		PUSH [BP-8]
-
-	label6:
-		MOV CX, [BP-6]      ; k accessed 
-		PUSH CX
-
-		MOV CX, 0		 ;integer found
-		PUSH CX
-
-		POP BX		; 0 popped
-		POP AX		; k popped
-		;CHECKING IF
-		CMP AX, BX
-		JG label7
-		PUSH 0
-		JMP label8 
-	label7:
-		PUSH 1
-	label8:
-		POP AX
-		CMP AX, 0
-		JNE label10
-		JMP label9
-	label10:
-		MOV CX, [BP-8]      ; ll accessed 
-		PUSH CX
-
-		MOV CX, 3		 ;integer found
-		PUSH CX
-
-		POP AX		;3 popped
-		POP CX		;ll popped
-		ADD CX, AX
-		PUSH CX
-
-		POP AX
-		MOV [BP-8], AX		; move to ll
-		PUSH [BP-8]
-
-		MOV AX, [BP - 6]		; ax = k
-		DEC AX		; k--
-		MOV [BP - 6], AX
-		PUSH AX
-
-		JMP label6
-	label9:
-		MOV AX, [BP -8]		; ax =  ll 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		MOV AX, [BP -6]		; ax =  k 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		MOV CX, 4		 ;integer found
-		PUSH CX
-
-		POP AX
-		MOV [BP-6], AX		; move to k
-		PUSH [BP-6]
-
-		MOV CX, 6		 ;integer found
-		PUSH CX
-
-		POP AX
-		MOV [BP-8], AX		; move to ll
-		PUSH [BP-8]
-
-	label11:
-		MOV AX, [BP - 6]		; ax = k
-		DEC AX		; k--
-		MOV [BP - 6], AX
-		PUSH AX
-
-		POP AX
-		INC AX
-		CMP AX, 0
-		JNE label13
-		JMP label12
-	label13:
-		MOV CX, [BP-8]      ; ll accessed 
-		PUSH CX
-
-		MOV CX, 3		 ;integer found
-		PUSH CX
-
-		POP AX		;3 popped
-		POP CX		;ll popped
-		ADD CX, AX
-		PUSH CX
-
-		POP AX
-		MOV [BP-8], AX		; move to ll
-		PUSH [BP-8]
-
-		MOV AX, 		 ; ax = 
-		INC AX 		; --
-		MOV , AX
-		PUSH AX
-
-		JMP label11
-	label12:
-		MOV AX, [BP -8]		; ax =  ll 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		MOV AX, [BP -6]		; ax =  k 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		MOV CX, 0		 ;integer found
-		PUSH CX
-
-		ADD SP, 8	;freeing the stack of the local variables
 		MOV SP, BP
-
+		POP BP
 		MOV AX, 4CH
 		INT 21H
 
