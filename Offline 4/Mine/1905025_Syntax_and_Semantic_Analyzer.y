@@ -129,12 +129,12 @@
         if(function->get_name() == "main"){
             end_main();
         }
-        else {
+        else if(! has_return) {
             if(total_params> 0)
                 code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n";
             code += "\t\tMOV SP, BP\n";
             code += "\t\tPOP BP\n";  
-            code += "\t\tRET\n";
+            code += "\t\tRET "+ to_string(2*total_params)+"\n";
 
             write_in_code_segment(code);
         }
@@ -192,8 +192,6 @@
     }
 
     void varable_incop_decop_operation(string name, string op){
-
-        // cout<<name <<" "<<op<<endl;
         // search the variable in the symboltable
         SymbolInfo* prev = symboltable->look_up(name);
         // find its stack_offset
@@ -248,9 +246,10 @@
                     code += "\t\t"+op+" AX\t\t; " +name+"--\n";
                     code += "\t\tMOV [BP + "+ to_string(stack_offset) + "], AX\n";
                 }else{
+                    cout<<total_line_count<<" "<<name<<" is param 0\n"; 
                     code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
                     code += "\t\t"+op+" AX\t\t; " +name+"--\n";
-                    code += "\t\tMOV [BP + "+ to_string(stack_offset) + "], AX\n";
+                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "], AX\n";
                 }  
             }
         }
@@ -1015,6 +1014,16 @@ statement : var_declaration {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2, $4 });
+
+            if(function_name != "main"){
+                string code = "\t\tPOP AX\n";
+                if(total_stack_size_used_in_function> 0)
+                    code += "\t\tADD SP, "+ to_string(2*total_stack_size_used_in_function)+ "\t;freeing the stack of the local variables\n";
+                code += "\t\tMOV SP, BP\n";
+                code += "\t\tPOP BP\n";  
+                code += "\t\tRET "+ to_string(2*total_stack_size_used_in_function)+"\n";
+                write_in_code_segment(code);
+            }
 
     }
     ;

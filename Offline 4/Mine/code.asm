@@ -42,7 +42,7 @@
 		PUSH AX
 		MOV AX, [BP - 2]		; ax = k
 		DEC AX		; k--
-		MOV [BP + 2], AX
+		MOV [BP - 2], AX
 		PUSH AX
 		JMP label1
 	label4:
@@ -61,16 +61,15 @@
 		POP CX		;3*a popped
 		SUB CX, AX
 		PUSH CX
+		POP AX
+		MOV SP, BP
+		POP BP
+		RET 0
 		MOV AX, 9		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP+4], AX		; move to a
 		PUSH [BP+4]
-		POP AX
-		ADD SP, 4	;freeing the stack of the local variables
-		MOV SP, BP
-		POP BP
-		RET
 	f ENDP
 
 	g PROC
@@ -127,7 +126,7 @@
 	label10:
 		MOV AX, [BP - 4]		; ax = i
 		INC AX		; i--
-		MOV [BP + 4], AX
+		MOV [BP - 4], AX
 		PUSH AX
 		JMP label6
 	label9:
@@ -186,10 +185,9 @@
 		MOV AX, [BP-2]      ; x accessed 
 		PUSH AX
 		POP AX
-		ADD SP, 8	;freeing the stack of the local variables
 		MOV SP, BP
 		POP BP
-		RET
+		RET 0
 	g ENDP
 
 	main PROC
@@ -253,7 +251,7 @@
 	label20:
 		MOV AX, [BP - 6]		; ax = i
 		INC AX		; i--
-		MOV [BP + 6], AX
+		MOV [BP - 6], AX
 		PUSH AX
 		JMP label16
 	label19:
@@ -284,11 +282,11 @@
 	label25:
 		MOV AX, [BP - 4]		; ax = b
 		INC AX		; b--
-		MOV [BP + 4], AX
+		MOV [BP - 4], AX
 		PUSH AX
 		MOV AX, [BP - 2]		; ax = a
 		DEC AX		; a--
-		MOV [BP + 2], AX
+		MOV [BP - 2], AX
 		PUSH AX
 		JMP label21
 	label24:
