@@ -102,12 +102,13 @@
 		POP AX
 		MOV [BP-2], AX		; move to x
 		PUSH [BP-2]
+		;INTO THE FOR LOOP
 		MOV AX, 0		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP-4], AX		; move to i
 		PUSH [BP-4]
-	label6:
+	label6:				; label for checking boolean expression
 		MOV AX, [BP-4]      ; i accessed 
 		PUSH AX
 		MOV AX, 7		 ;integer found
@@ -124,15 +125,15 @@
 	label8:
 		POP AX
 		CMP AX, 0
-		JNE label10
-		JMP label9
-	label10:
+		JNE label10		; move to b_true
+		JMP label9		; move to b_false
+		label11:				; label for incrementing or decrementing
 		MOV AX, [BP - 4]		; ax = i
 		INC AX		; i--
 		MOV [BP - 4], AX
 		PUSH AX
-		JMP label6
-	label9:
+		JMP label6		; move to the condition check again
+	label10:				 label for b_true
 		MOV AX, [BP-4]      ; i accessed 
 		PUSH AX
 		MOV AX, 3		 ;integer found
@@ -149,17 +150,17 @@
 		POP AX		; i%3 popped
 		;CHECKING IF
 		CMP AX, BX
-		JE label11
+		JE label12
 		PUSH 0
-		JMP label12 
-	label11:
-		PUSH 1
+		JMP label13 
 	label12:
+		PUSH 1
+	label13:
 		POP AX
 		CMP AX, 0
-		JNE label13
-		JMP label14
-	label13:
+		JNE label14
+		JMP label15
+	label14:
 		MOV AX, [BP-2]      ; x accessed 
 		PUSH AX
 		MOV AX, 5		 ;integer found
@@ -171,8 +172,8 @@
 		POP AX
 		MOV [BP-2], AX		; move to x
 		PUSH [BP-2]
-		JMP label15
-	label14:
+		JMP label16
+	label15:
 		MOV AX, [BP-2]      ; x accessed 
 		PUSH AX
 		MOV AX, 1		 ;integer found
@@ -184,7 +185,10 @@
 		POP AX
 		MOV [BP-2], AX		; move to x
 		PUSH [BP-2]
-	label15:
+	label16:
+		JMP label11				;go to incrementing or decrementing
+		; exiting the for loop
+	label9:				 label for statements.next
 		MOV AX, [BP-2]      ; x accessed 
 		PUSH AX
 		POP AX
@@ -230,12 +234,13 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
+		;INTO THE FOR LOOP
 		MOV AX, 0		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP-6], AX		; move to i
 		PUSH [BP-6]
-	label16:
+	label17:				; label for checking boolean expression
 		MOV AX, [BP-6]      ; i accessed 
 		PUSH AX
 		MOV AX, 4		 ;integer found
@@ -244,29 +249,29 @@
 		POP AX		; i popped
 		;CHECKING IF
 		CMP AX, BX
-		JL label17
+		JL label18
 		PUSH 0
-		JMP label18 
-	label17:
-		PUSH 1
+		JMP label19 
 	label18:
+		PUSH 1
+	label19:
 		POP AX
 		CMP AX, 0
-		JNE label20
-		JMP label19
-	label20:
+		JNE label21		; move to b_true
+		JMP label20		; move to b_false
+		label22:				; label for incrementing or decrementing
 		MOV AX, [BP - 6]		; ax = i
 		INC AX		; i--
 		MOV [BP - 6], AX
 		PUSH AX
-		JMP label16
-	label19:
+		JMP label17		; move to the condition check again
+	label21:				 label for b_true
 		MOV AX, 3		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP-2], AX		; move to a
 		PUSH [BP-2]
-	label21:
+	label23:
 		MOV AX, [BP-2]      ; a accessed 
 		PUSH AX
 		MOV AX, 0		 ;integer found
@@ -275,17 +280,17 @@
 		POP AX		; a popped
 		;CHECKING IF
 		CMP AX, BX
-		JG label22
+		JG label24
 		PUSH 0
-		JMP label23 
-	label22:
+		JMP label25 
+	label24:
 		PUSH 1
-	label23:
+	label25:
 		POP AX
 		CMP AX, 0
-		JNE label25
-		JMP label24
-	label25:
+		JNE label27
+		JMP label26
+	label27:
 		MOV AX, [BP - 4]		; ax = b
 		INC AX		; b--
 		MOV [BP - 4], AX
@@ -294,8 +299,11 @@
 		DEC AX		; a--
 		MOV [BP - 2], AX
 		PUSH AX
-		JMP label21
-	label24:
+		JMP label23
+	label26:
+		JMP label22				;go to incrementing or decrementing
+		; exiting the for loop
+	label20:				 label for statements.next
 		MOV AX, [BP -2]		; ax =  a 
 		CALL PRINT_NUMBER
 		CALL NEWLINE

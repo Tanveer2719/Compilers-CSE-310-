@@ -819,25 +819,32 @@ if_block: {
 } 
 
 init_for: {
-    string code = "";
-    string for_label = new_label();
-    code += "\t" + for_label + ":";
+    string condition_check = new_label();
+    string code = "\t" + condition_check + ":\t\t\t\t; label for checking boolean expression";
     write_in_code_segment(code);
-    $$ = new SymbolInfo(for_label, "LABEL"); 
+    $$ = new SymbolInfo(condition_check, "LABEL"); 
 }
 
 check_boolean: {
-    string end_label = new_label();
-    string bypass_label = new_label();
+    string b_false = new_label();
+    string b_true = new_label();
+    string statement_next = new_label();
 
     string code = "\t\tPOP AX\n";
     code += "\t\tCMP AX, 0\n";
-    code += "\t\tJNE " + bypass_label + "\n";
-    code += "\t\tJMP " + end_label + "\n";  // if false go to the end of the loop
-    code += "\t" + bypass_label + ":";
+    code += "\t\tJNE " + b_true + "\t\t; move to b_true\n";
+    code += "\t\tJMP " + b_false + "\t\t; move to b_false\n";  // if false go to the end of the loop
+    code += "\t\t" + statement_next + ":\t\t\t\t; label for incrementing or decrementing";
     write_in_code_segment(code);
 
-    $$ = new SymbolInfo(end_label, "LABEL");
+    // b_true label will be printed before the statement
+    // b false will be printed after the statement execution
+    $$ = new SymbolInfo(b_false, b_true);
+    // this is used just as a temporary
+    // after the boolean check  go to the statement
+    // then after statement comme back to increment or decrement  
+    // i++ or i--
+    $$->set_specifier(statement_next);  
 }
 
 statement : var_declaration {
@@ -861,29 +868,36 @@ statement : var_declaration {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1  });
     }
-        | FOR LPAREN expression_statement init_for expression_statement check_boolean {$<line>$ = end_line_of_code_segment;} expression {
-            string for_label = $4->get_name();
-            string end_label = $6->get_name();
-
-            // string code = "\t\tPOP AX\n";
-            string code = "\t\tJMP " + for_label + "\n";
-            code += "\t" + end_label + ":";
-
+        | FOR {write_in_code_segment("\t\t;INTO THE FOR LOOP\n");} LPAREN expression_statement init_for expression_statement check_boolean expression {
+            string condition_check = $5->get_name();
+            string b_true = $7->get_type();
+            string code ="\t\tJMP " + condition_check + "\t\t; move to the condition check again\n";
+            code += "\t"+ b_true + ":\t\t\t\t label for b_true"; 
             write_in_code_segment(code);
-
-            end_line_of_code_segment = $<line>7;
 
         } RPAREN statement {
             /* check if the expression statement and the expression has void type specifiers */            
             $$ = new SymbolInfo("","statement");
-            $$->set_name(stringconcat({$1,$2,$3,$5,$8,$10,$11}));
+            $$->set_name(stringconcat({$1,$3,$4,$6,$8,$10,$11}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($11->get_end_line());
-            $$->add_child({$1,$2,$3,$5,$8,$10,$11});
+            $$->add_child({$1,$3,$4,$6,$8,$10,$11});
 
-            end_line_of_code_segment = total_line_in_assembly;
-            delete $4;
-            delete $6;
+            
+            string statement_next = $7->get_specifier();
+            string b_false = $7->get_name();
+
+            // go to i++ or i--
+            string code = "\t\tJMP "+ statement_next + "\t\t\t\t;go to incrementing or decrementing\n";
+            // print the next label
+            code += "\t\t; exiting the for loop\n";
+            code += "\t"+ b_false + ":\t\t\t\t label for statements.next";
+
+
+            write_in_code_segment(code);
+
+            delete $5;
+            delete $7;
     }
         | IF LPAREN expression RPAREN if_block statement %prec THEN {
             /* conflict */
