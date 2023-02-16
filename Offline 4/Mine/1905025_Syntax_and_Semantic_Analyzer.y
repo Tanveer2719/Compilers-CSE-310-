@@ -29,7 +29,8 @@
     int stack_offset = 2;
 
     string function_name = "";
-    bool has_return = false;
+    bool has_return = false;        // flag to check if the function has return type or not
+    bool is_returned = false;       // a flag to check if the function call has returned a value or not
 
     
     /*
@@ -90,16 +91,16 @@
         end the main procedure
     */
     void end_main(){
-        string text ="\t\tMOV SP, BP\n\t\tPOP BP\n";
+        string text = "\t\tADD SP ," + to_string(total_stack_size_used_in_function*2)+ "\n";
+        text += "\t\tMOV SP, BP\n\t\tPOP BP\n";
         text += "\t\tMOV AX, 4CH\n\t\tINT 21H\n";
         write("code.asm", text, true);
         increase_code_segment(text);
     }
 
     void start_procedure(string id, string type_specifier){
-        function_name = id;
-        
-        if(type_specifier != "VOID"){
+        function_name = id;        
+        if(type_specifier != "void"){
             has_return = true;
         }
 
@@ -107,8 +108,6 @@
         string code = "\t" + id + " PROC";
         write("code.asm", code, true);
         increase_code_segment(code);
-
-        cout<<"end_line_of_code_segment: "<<end_line_of_code_segment<<endl;
 
         if(id == "main"){
             declare_main();
@@ -123,41 +122,38 @@
     }
 
     void end_procedure(SymbolInfo* function, int total_params){
-        string code = "";
-        if(total_params>0){
-            write_in_code_segment("\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n"); 
-        }
+        string code = "\t\tPOP AX\n";
 
         if(function->get_name() == "main"){
             end_main();
         }
         else {
-            if(! has_return){
-                code += "\t\tMOV SP, BP\n";
-                code += "\t\POP BP\n";
-                code += "\t\tRET\n"; 
-            }
+            code += "\t\tMOV SP, BP\n";
+            code += "\t\tPOP BP\n";
+            if(total_params> 0)
+                code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n";
+            code += "\t\tRET\n";
+
             write_in_code_segment(code);
         }
-        
-
         write("code.asm", "\t" + function->get_name()+ + " ENDP\n", true);
         total_line_in_assembly += 1; 
 
     }
 
     void variable_operation(SymbolInfo* x){
+
         if(symboltable->get_current_scope_id() != 1){
             if(! x->is_array()){
                 string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared\n";
                 write_in_code_segment(code);
-                symboltable->set_stack_offset(x->get_name(), stack_offset);
+                x->set_stack_offset(stack_offset);
                 stack_offset += 2;
             }else{
                 int size = x->get_size();
                 string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared\n";
                 write_in_code_segment(code);
-                symboltable->set_stack_offset(x->get_name(), stack_offset);
+                x->set_stack_offset(stack_offset);
                 stack_offset += 2*size;
             } 
         }else{
@@ -169,11 +165,10 @@
                 int size = x->get_size();
                 string code = "\t" + x->get_name() + " DW "+to_string(size) +"DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
                 write_in_data_segment(code);
-            } 
-            
-            symboltable->set_stack_offset(x->get_name());   // set the global flag true;                 
-
+            }                
         }
+
+        symboltable->insert(x);
 
     }
 
@@ -218,7 +213,12 @@
                 // not global
                 code += "\t\tPUSH BP\t\t ; save BP \n";
                 code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
-                code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
+                if(prev->is_param()){
+                    code += "\t\tADD BX, 2\n";
+                    code += "\t\tADD BP, BX\n";  
+                }else{
+                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
+                }
                 code += "\t\tMOV AX, [BP]\n";
                 code += "\t\t"+op+" AX\t\t;  AX -- \n";
                 code += "\t\tMOV [BP], AX\n";
@@ -240,9 +240,16 @@
                 code += "\t\t"+op +" AX\t\t; " +name+"-- \n";
                 code += "\t\tMOV [BP],  AX \n";
             }else{
-                code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
-                code += "\t\t"+op+" AX\t\t; " +name+"--\n";
-                code += "\t\tMOV [BP - "+ to_string(stack_offset) + "], AX\n";
+                if(prev->is_param()){
+                    stack_offset += 2;
+                    code += "\t\tMOV AX, [BP + "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
+                    code += "\t\t"+op+" AX\t\t; " +name+"--\n";
+                    code += "\t\tMOV [BP + "+ to_string(stack_offset) + "], AX\n";
+                }else{
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
+                    code += "\t\t"+op+" AX\t\t; " +name+"--\n";
+                    code += "\t\tMOV [BP + "+ to_string(stack_offset) + "], AX\n";
+                }  
             }
         }
 
@@ -546,19 +553,16 @@ parameter_list : parameter_list COMMA type_specifier ID {
         ;
 
 compound_statement : LCURL modified_lcurl statements RCURL {
-            // write_to_log("compound_statement", "LCURL statements RCURL");
-            //write_to_console("compound_statement", "LCURL statements RCURL");
-
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $3, $4}));
-
-            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
-
-            symboltable->exit_scope();
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$3,$4});
+            
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+            
+            symboltable->exit_scope();
             
         }
         | LCURL modified_lcurl RCURL {
@@ -581,8 +585,18 @@ compound_statement : LCURL modified_lcurl statements RCURL {
 
 modified_lcurl: {
             symboltable->enter_scope();
+            int temp_stack_offset = 0;
 
-            // for any void type parameter set type = "error" 
+            for(auto x: symbolInfoList->get_parameters()){
+                if(x->is_array()){
+                    temp_stack_offset += (x->get_size()*2);
+                }
+                else{
+                    temp_stack_offset += 2;
+                }
+            }
+
+            // for any void type parameter set type = "error"
             for(auto x : symbolInfoList->get_parameters()){
                 if(x->get_name() == "") continue;
                 if(isVoid(x)){
@@ -591,14 +605,24 @@ modified_lcurl: {
                     break;
                 }
 
+                x->set_stack_offset(temp_stack_offset);
+                x->set_param();
                 bool flag = symboltable->insert(x);
+
                 if(!flag){
                     write_error("Redefinition of parameter '"+ x->get_name()+"'");
                     break;
                 }
-                
+
+                if(x->get_size() == 0){
+                    temp_stack_offset -= 2;
+                } else{
+                    temp_stack_offset -= 2*x->get_size();
+                }  
             }
+
             symbolInfoList->set_parameters({}); // after entering into scope table set the parameter list  = 0
+
     }
     ;
 
@@ -610,31 +634,14 @@ var_declaration : type_specifier declaration_list SEMICOLON {
             $$->set_end_line($3->get_end_line());
             $$->add_child({$1, $2, $3});
 
-            if($1->get_specifier() == "VOID"){
-                for(auto x : $2->get_declarations())
-                    write_error("Variable or field '" + x->get_name() + "' declared void");
-            }else {
-                // not global
-                for(auto x : $2->get_declarations()){
-                    x->set_specifier($1->get_specifier());
-
-                    bool flag = symboltable->insert(x);
-                    
-                    if(! flag){     // if not inserted 
-                        SymbolInfo *prev = symboltable->look_up(x->get_name());
-                        if(prev->get_specifier() != x->get_specifier()){
-                            write_error("Conflicting types for'" + x->get_name() + "'");
-                        }else{
-                            write_error("Redeclaration of'"+ x->get_name()+"'");
-                        }
-                    }else{  // if inserted
-                        variable_operation(x);
-                    }
-                
-                }
-                cout<<"no error"<<endl;
-
+          
+            for(auto x : $2->get_declarations()){
+                x->set_specifier($1->get_specifier());
+                variable_operation(x);
             }
+
+            write_in_code_segment("\n");
+
     }
         | type_specifier error SEMICOLON {
             
@@ -833,9 +840,6 @@ check_boolean: {
 }
 
 statement : var_declaration {
-            // write_to_log("statement", "var_declaration");
-            //write_to_console("statement", "var_declaration");
-
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1}));
             $$->set_start_line($1->get_start_line());
@@ -843,9 +847,6 @@ statement : var_declaration {
             $$->add_child({$1  });
     }
         | expression_statement {
-            // write_to_log("statement", "expression_statement");
-            //write_to_console("statement", "expression_statement");
-
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1}));
             $$->set_start_line($1->get_start_line());
@@ -853,9 +854,6 @@ statement : var_declaration {
             $$->add_child({$1  });
     }
         | compound_statement {
-            // write_to_log("statement", "compound_statement");
-            //write_to_console("statement", "compound_statement");
-
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1}));
             $$->set_start_line($1->get_start_line());
@@ -1002,35 +1000,20 @@ statement : var_declaration {
                 }
                 
                 code += "\t\tCALL PRINT_NUMBER\n";
-                code += "\t\tCALL NEWLINE\n"; 
+                code += "\t\tCALL NEWLINE\n\n"; 
                 write_in_code_segment(code);
             }
 
             
               
         }
-        | RETURN expression {isVoid($2);} SEMICOLON {
-            // write_to_log("statement", "RETURN expression SEMICOLON");
-            //write_to_console("statement", "RETURN expression SEMICOLON");
-            
+        | RETURN expression {isVoid($2);} SEMICOLON {            
             $$ = new SymbolInfo("","statement");
             $$->set_name(stringconcat({$1,$2,$4}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2, $4 });
 
-            string code = "\t\tPOP AX\n";
-            if(function_name == "main"){
-                
-            }else{
-                SymbolInfo* func = symboltable->look_up(function_name);
-                int no_of_param = (func != NULL)? func->get_parameters().size() : 0;
-                code += "\t\tMOV SP, BP\n";
-                code += "\t\tPOP BP\n";
-                // code += "\t\tRET " + (no_of_param ? to_string(2*no_of_param) : "");
-                code += "\t\tRET";
-                write_in_code_segment(code);
-            }
     }
     ;
 
@@ -1079,6 +1062,7 @@ variable : ID {
             $$->add_child({$1 });
 
             SymbolInfo* prevID = symboltable->look_up($1->get_name());
+
         
             if( !prevID){
                 $$->set_specifier("error");
@@ -1136,6 +1120,7 @@ expression : logic_expression {
 
             $$ = new SymbolInfo("","expression");
             $$->set_name(stringconcat({$1,$2,$3}));
+
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
             $$->add_child({$1,$2,$3});
@@ -1146,29 +1131,44 @@ expression : logic_expression {
             } else {
                 string type = type_casting($1, $3);
                 $$->set_specifier(type);
-
-                string code ="\t\tPOP AX\n";
-                int stack_offset = $1->get_stack_offset();
+                
+                SymbolInfo* prev = symboltable->look_up($1->get_name());
+                
+                string code = "";
+                if(! is_returned)
+                    code +="\t\tPOP AX\n";
+                int stack_offset = prev->get_stack_offset();
+               
                 if(stack_offset == -1){
-                    if(! $1->is_array()){
-                        code += "\t\tMOV " + $1->get_name() + ", AX \n\t\tPUSH " + $1->get_name() +"\n";
+                    // IS A GLOBAL VAIRABLE
+                    if(! prev->is_array()){
+                        // NOT AN ARRAY
+                        code += "\t\tMOV " + prev->get_name() + ", AX \n\t\tPUSH " + prev->get_name() +"\n";
                         write_in_code_segment(code);
-                    }
-                    
-                }else{
-                     
-                    if(! $1->is_array()){
+                    }   
+                }
+                else if(prev->is_param()) {
+                    // IS A PARAMETER 
+                        if(!prev->is_array()){
+                            // NOT A N ARRAY
+                            stack_offset += 2;
+                            code +="\t\tMOV [BP+" +to_string(stack_offset)+"], AX\t\t; move to "+prev->get_name()+"\n\t\tPUSH [BP+" + to_string(stack_offset) + "]\n";
+                        }
+                }else {
+                    // IS A LOCAL VARIABLE
+                    if(! prev->is_array()){
                         if(stack_offset == 0){
-                            code += "\t\tMOV [BP], AX\t\t; move to "+$1->get_name()+"\n";
+                            code += "\t\tMOV [BP], AX\t\t; move to "+prev->get_name()+"\n";
                             code += "\t\tPUSH [BP]\n";
                         }else{
-                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\t\t; move to "+$1->get_name()+"\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
+                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\t\t; move to "+prev->get_name()+"\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
                         }
-                        write_in_code_segment(code);
                     }
-                }              
-            }  
-                     
+                }
+                    write_in_code_segment(code);
+            }              
+            
+            is_returned = false;             
     }   
     ; 
 
@@ -1476,14 +1476,20 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ $1->get_name() + "       ; " + $1->get_name() + " accessed\n"; 
+                code +="\t\tMOV CX, "+ prev->get_name() + "       ; " + prev->get_name() + " accessed\n"; 
                 code += "\t\tPUSH CX\n";
             }else{
-                if(stack_offset == 0){
-                    code += "\t\tMOV CX, [BP]      ; "+ $1->get_name() + " accessed \n";
+                if(prev->is_param()){
+                    stack_offset += 2;
+                    code +="\t\tMOV CX, [BP+" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
                 }else{
-                    code +="\t\tMOV CX, [BP-" +to_string(stack_offset)+"]      ; "+ $1->get_name() + " accessed \n"; 
+                    if(stack_offset == 0){
+                        code += "\t\tMOV CX, [BP]      ; "+ prev->get_name() + " accessed \n";
+                    }else{
+                        code +="\t\tMOV CX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
+                    }
                 }
+                
                 code += "\t\tPUSH CX\n";
             }
 
@@ -1626,8 +1632,21 @@ factor : variable {
                 }
             }
 
-            write_in_code_segment("\t\tCALL "+ $1->get_name()+ "\n");
+            string code = "\n";
+            for(auto x: $3->get_parameters()){
+                SymbolInfo *temp = symboltable->look_up(x->get_name());
+                int stack_offset = temp->get_stack_offset();
 
+                if(stack_offset != -1){
+                    code += "\t\tMOV AX, [BP-" + to_string(stack_offset)+"]\t\t ; access  "+temp->get_name()+ "\n";
+                }else{
+                    code += "\t\tMOV AX, "+temp->get_name()+"\n";
+                }
+                code += "\t\tPUSH AX\t\t; pushed "+temp->get_name()+ "\n"; 
+
+            }
+            code += "\t\tCALL "+ $1->get_name()+ "\n\n";
+            write_in_code_segment(code);
 
 
 
@@ -1636,9 +1655,6 @@ factor : variable {
 
 
 argument_list : arguments {
-            // write_to_log("argument_list", "arguments");
-            //write_to_console("argument_list", "arguments");
-            
             $$ = new SymbolInfo("", "argument_list");
             $$->set_name(stringconcat({$1}));
             $$->set_parameters($1->get_parameters());
@@ -1647,9 +1663,6 @@ argument_list : arguments {
             $$->add_child({$1});
     }
         | {
-            // write_to_log("argument_list", "arguments");
-            //write_to_console("argument_list", "arguments");
-
             $$ = new SymbolInfo("", "argument_list");
             
         }
@@ -1876,11 +1889,6 @@ int main(int argc, char* argv[]){
     print_number();
     
     terminate_assembly_file();
-
-    cout<<"end line of code segment = "<<end_line_of_code_segment<<endl;
-    cout<<"end line of data segment = "<<end_line_of_data_segment<<endl;
-
-
 
     parse_file.close();
     error_file.close();
