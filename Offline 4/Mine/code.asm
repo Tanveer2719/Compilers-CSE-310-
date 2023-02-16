@@ -85,7 +85,7 @@
 		POP AX
 		MOV c, AX 
 		PUSH c
-		MOV CX, c       ; c accessed
+		MOV CX, c       ; c 
 		PUSH CX
 		POP AX
 		ADD SP, 4	;freeing the stack of the local variables
@@ -123,8 +123,6 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
 
 		MOV AX, [BP-2]		 ; access  i
 		PUSH AX		; pushed i
@@ -136,10 +134,6 @@
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
-		MOV CX, [BP-4]      ; j accessed 
-		PUSH CX
 
 		MOV AX, [BP-2]		 ; access  i
 		PUSH AX		; pushed i
@@ -155,10 +149,6 @@
 
 		MOV CX, 6		 ;integer found
 		PUSH CX
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
-		MOV CX, [BP-4]      ; j accessed 
-		PUSH CX
 
 		MOV AX, [BP-2]		 ; access  i
 		PUSH AX		; pushed i
@@ -167,7 +157,6 @@
 		CALL bar
 
 		POP CX
-		POP AX
 		CWD
 		MUL CX
 		PUSH AX
@@ -179,15 +168,12 @@
 		PUSH CX
 		MOV CX, 3		 ;integer found
 		PUSH CX
-		MOV CX, [BP-2]      ; i accessed 
-		PUSH CX
 
 		MOV AX, [BP-2]		 ; access  i
 		PUSH AX		; pushed i
 		CALL foo
 
 		POP CX
-		POP AX
 		CWD
 		MUL CX
 		PUSH AX
@@ -195,6 +181,7 @@
 		POP CX		;6*bar(i,j)+2 popped
 		SUB CX, AX
 		PUSH CX
+		POP AX
 		MOV [BP-4], AX		; move to j
 		PUSH [BP-4]
 		MOV AX, [BP -4]		; ax =  j 

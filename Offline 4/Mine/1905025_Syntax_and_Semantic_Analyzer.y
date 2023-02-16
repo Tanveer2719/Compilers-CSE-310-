@@ -31,6 +31,7 @@
     string function_name = "";
     bool has_return = false;        // flag to check if the function has return type or not
     bool is_returned = false;       // a flag to check if the function call has returned a value or not
+    bool in_argument_list = false;
 
     
     /*
@@ -1384,7 +1385,8 @@ term : unary_expression {
             }
 
             string code = "\t\tPOP CX\n";
-            code += "\t\tPOP AX\n"; 
+            if(! is_returned)
+                code += "\t\tPOP AX\n"; 
             code += "\t\tCWD\n";
             if($2->get_name() == "*"){
                 code += "\t\tMUL CX\n";
@@ -1401,6 +1403,7 @@ term : unary_expression {
             }
 
             write_in_code_segment(code);
+            is_returned = false;
         }
         ;
 
@@ -1477,7 +1480,7 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ prev->get_name() + "       ; " + prev->get_name() + " accessed\n"; 
+                code +="\t\tMOV CX, "+ prev->get_name() + "       ; " + prev->get_name() + " \n"; 
                 code += "\t\tPUSH CX\n";
             }else{
                 if(prev->is_param()){
@@ -1493,8 +1496,9 @@ factor : variable {
                 
                 code += "\t\tPUSH CX\n";
             }
-
-            write_in_code_segment(code);
+            // cout<<total_line_count<<" "<<$1->get_name()<<" in_argument_list "<<in_argument_list<<endl;
+            if(!in_argument_list)
+                write_in_code_segment(code);
     }
         | LPAREN expression RPAREN {
             $$ = new SymbolInfo("", "factor");
@@ -1580,6 +1584,7 @@ factor : variable {
         }
         | ID LPAREN argument_list RPAREN {
             // function call
+            in_argument_list = false;
             $$ = new SymbolInfo("", "factor");
 
             if($3->get_name() == ""){
@@ -1669,9 +1674,12 @@ argument_list : arguments {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
+            in_argument_list = true;
     }
         | {
             $$ = new SymbolInfo("", "argument_list");
+            in_argument_list = true;
+
             
         }
         
@@ -1700,40 +1708,42 @@ argument_list : arguments {
         ;
 
 
-arguments : arguments COMMA logic_expression {
+arguments : arguments COMMA {in_argument_list = true;} logic_expression {
             // write_to_log("arguments", "arguments COMMA logic_expression");
             //write_to_console("arguments", "arguments COMMA logic_expression");
             
             $$ = new SymbolInfo("", "arguments");
-            $$->set_name(stringconcat({$1, $2, $3}));
+            $$->set_name(stringconcat({$1, $2, $4}));
             $$->set_start_line($1->get_start_line());
-            $$->set_end_line($3->get_end_line());
-            $$->add_child({$1,$2,$3 });
+            $$->set_end_line($4->get_end_line());
+            $$->add_child({$1,$2,$4 });
 
-            if($3->get_specifier() == "VOID"){
+            if($4->get_specifier() == "VOID"){
                 write_error("Void cannot be used in argument "  );
                 $$->set_specifier("error");
             }
 
+            cout<<in_argument_list<<endl;
+
             $$->set_parameters($1->get_parameters());
-            $$->add_parameter($3);
+            $$->add_parameter($4);
         }
-        | logic_expression {
+        | {in_argument_list = true;} logic_expression {
             // write_to_log("arguments", "logic_expression");
             //write_to_console("arguments", "logic_expression");
 
             $$ = new SymbolInfo("", "arguments");
-            $$->set_name(stringconcat({$1}));
-            $$->set_start_line($1->get_start_line());
-            $$->set_end_line($1->get_end_line());
-            $$->add_child({$1 });
+            $$->set_name(stringconcat({$2}));
+            $$->set_start_line($2->get_start_line());
+            $$->set_end_line($2->get_end_line());
+            $$->add_child({$2 });
 
-            if($1->get_specifier() == "VOID"){
+            if($2->get_specifier() == "VOID"){
                 write_error("Void cannot be used in argument");
                 $$->set_specifier("error");
             }
 
-            $$->add_parameter($1);
+            $$->add_parameter($2);
 
         }
     ;
