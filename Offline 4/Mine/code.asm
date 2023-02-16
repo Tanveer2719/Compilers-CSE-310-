@@ -62,9 +62,10 @@
 		SUB CX, AX
 		PUSH CX
 		POP AX
+		ADD SP, 4	;freeing the stack of the local variables
 		MOV SP, BP
 		POP BP
-		RET 0
+		RET 4
 		MOV AX, 9		 ;integer found
 		PUSH AX
 		POP AX
@@ -85,6 +86,7 @@
 		PUSH AX		; pushed a
 		CALL f
 
+		PUSH AX
 		MOV AX, [BP+6]      ; a accessed 
 		PUSH AX
 		POP AX		;a popped
@@ -97,6 +99,7 @@
 		POP CX		;f(a)+a popped
 		ADD CX, AX
 		PUSH CX
+		POP AX
 		MOV [BP-2], AX		; move to x
 		PUSH [BP-2]
 		MOV AX, 0		 ;integer found
@@ -185,9 +188,10 @@
 		MOV AX, [BP-2]      ; x accessed 
 		PUSH AX
 		POP AX
+		ADD SP, 8	;freeing the stack of the local variables
 		MOV SP, BP
 		POP BP
-		RET 0
+		RET 8
 	g ENDP
 
 	main PROC
@@ -218,6 +222,8 @@
 		PUSH AX		; pushed b
 		CALL g
 
+		PUSH AX
+		POP AX
 		MOV [BP-2], AX		; move to a
 		PUSH [BP-2]
 		MOV AX, [BP -2]		; ax =  a 

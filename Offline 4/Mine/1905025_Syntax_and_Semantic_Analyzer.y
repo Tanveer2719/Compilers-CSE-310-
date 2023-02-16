@@ -30,7 +30,7 @@
 
     string function_name = "";
     bool has_return = false;        // flag to check if the function has return type or not
-    bool is_returned = false;       // a flag to check if the function call has returned a value or not
+    // bool is_returned = false;       // a flag to check if the function call has returned a value or not
     bool in_argument_list = false;
 
     
@@ -1015,6 +1015,8 @@ statement : var_declaration {
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2, $4 });
 
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+
             if(function_name != "main"){
                 string code = "\t\tPOP AX\n";
                 if(total_stack_size_used_in_function> 0)
@@ -1145,8 +1147,7 @@ expression : logic_expression {
                 SymbolInfo* prev = symboltable->look_up($1->get_name());
                 
                 string code = "";
-                if(! is_returned)
-                    code +="\t\tPOP AX\n";
+                code +="\t\tPOP AX\n";
                 int stack_offset = prev->get_stack_offset();
                
                 if(stack_offset == -1){
@@ -1178,7 +1179,6 @@ expression : logic_expression {
                     write_in_code_segment(code);
             }              
             
-            is_returned = false;             
     }   
     ; 
 
@@ -1393,8 +1393,7 @@ term : unary_expression {
             }
 
             string code = "\t\tPOP CX\n";
-            if(! is_returned)
-                code += "\t\tPOP AX\n"; 
+            code += "\t\tPOP AX\n"; 
             code += "\t\tCWD\n";
             if($2->get_name() == "*"){
                 code += "\t\tMUL CX\n";
@@ -1411,7 +1410,7 @@ term : unary_expression {
             }
 
             write_in_code_segment(code);
-            is_returned = false;
+             
         }
         ;
 
@@ -1627,11 +1626,6 @@ factor : variable {
                     }
                 }
             }
-
-            // cout<<prev->get_specifier()<<endl;
-            if(prev->get_specifier() != "VOID"){
-                is_returned = true;
-            }
             
             string code = "\n";
             for(auto x: $3->get_parameters()){
@@ -1654,6 +1648,7 @@ factor : variable {
 
             }
             code += "\t\tCALL "+ $1->get_name()+ "\n\n";
+            code += "\t\tPUSH AX\n";
             write_in_code_segment(code);
 
 
