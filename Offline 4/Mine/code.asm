@@ -82,7 +82,7 @@
 		SUB SP, 2  	;variable i declared
 
 
-		MOV AX, [BP-4]		 ; access  a
+		MOV AX, [BP+6]		; a accessed 
 		PUSH AX		; pushed a
 		CALL f
 

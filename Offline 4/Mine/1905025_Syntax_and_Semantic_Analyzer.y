@@ -1068,7 +1068,6 @@ variable : ID {
         
             if( !prevID){
                 $$->set_specifier("error");
-                // log_file<<"Error at line no "<<total_line_count<<" : syntax error\n";
                 write_error("Undeclared variable '" + $1->get_name()+ "'");
                 
             }else if(prevID->is_array()){
@@ -1432,21 +1431,12 @@ unary_expression : ADDOP unary_expression {
 
         }
         | NOT unary_expression {
-            // write_to_log("unary_expression", "NOT unary_expression");
-            //write_to_console("unary_expression", "NOT unary_expression");
-
             $$ = new SymbolInfo("", "unary_expression");
             $$->set_name(stringconcat({$1,$2}));
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($2->get_end_line());
             $$->add_child({$1,$2 });
-
-            if($2->get_specifier() == "VOID"){
-                write_error("Void cannot be used in expression "  );
-                $$->set_specifier("error");
-            } else{
-                $$->set_specifier("INT");
-            }
+            $$->set_specifier("INT");
 
         }
         | factor {
@@ -1480,23 +1470,21 @@ factor : variable {
             int stack_offset = prev->get_stack_offset();
             string code = "";
             if(stack_offset == -1){
-                code +="\t\tMOV CX, "+ prev->get_name() + "       ; " + prev->get_name() + " \n"; 
-                code += "\t\tPUSH CX\n";
+                code +="\t\tMOV AX, "+ prev->get_name() + "       ; " + prev->get_name() + " \n"; 
             }else{
                 if(prev->is_param()){
                     stack_offset += 2;
-                    code +="\t\tMOV CX, [BP+" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
+                    code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
                 }else{
                     if(stack_offset == 0){
-                        code += "\t\tMOV CX, [BP]      ; "+ prev->get_name() + " accessed \n";
+                        code += "\t\tMOV AX, [BP]      ; "+ prev->get_name() + " accessed \n";
                     }else{
-                        code +="\t\tMOV CX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
+                        code +="\t\tMOV AX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
                     }
                 }
                 
-                code += "\t\tPUSH CX\n";
+                code += "\t\tPUSH AX\n";
             }
-            // cout<<total_line_count<<" "<<$1->get_name()<<" in_argument_list "<<in_argument_list<<endl;
             if(!in_argument_list)
                 write_in_code_segment(code);
     }
@@ -1515,13 +1503,9 @@ factor : variable {
 
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($3->get_end_line());
-            // print_debug(1162, to_string($$->get_end_line()));
             $$->add_child({$1,$2,$3 });
         }
         | CONST_INT {
-            // write_to_log("factor", "CONST_INT");
-            //write_to_console("factor", "CONST_INT");
-
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier("INT");
@@ -1530,12 +1514,9 @@ factor : variable {
             $$->set_end_line($1->get_end_line());
             $$->add_child({$1});
 
-            write_in_code_segment("\t\tMOV CX, " + $1->get_name()+"\t\t ;integer found\n\t\tPUSH CX\n");
+            write_in_code_segment("\t\tMOV AX, " + $1->get_name()+"\t\t ;integer found\n\t\tPUSH AX\n");
         }
-        | CONST_FLOAT {
-            // write_to_log("factor", "CONST_FLOAT");
-            //write_to_console("factor", "CONST_FLOAT");
-            
+        | CONST_FLOAT {            
             $$ = new SymbolInfo("", "factor");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier("FLOAT");
@@ -1651,7 +1632,12 @@ factor : variable {
                 int stack_offset = temp->get_stack_offset();
 
                 if(stack_offset != -1){
-                    code += "\t\tMOV AX, [BP-" + to_string(stack_offset)+"]\t\t ; access  "+temp->get_name()+ "\n";
+                    if(temp->is_param()){
+                        stack_offset += 2;
+                        code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]\t\t; "+ temp->get_name() + " accessed \n";
+                    }else{
+                        code += "\t\tMOV AX, [BP-" + to_string(stack_offset)+"]\t\t ; access  "+temp->get_name()+ "\n";
+                    }
                 }else{
                     code += "\t\tMOV AX, "+temp->get_name()+"\n";
                 }
