@@ -46,9 +46,9 @@
 		MOV CX, [BP+4]      ; a accessed 
 		PUSH CX
 		POP AX
+		ADD SP, 2	;freeing the stack of the local variables
 		MOV SP, BP
 		POP BP
-		ADD SP, 2	;freeing the stack of the local variables
 		RET
 	foo ENDP
 
@@ -88,9 +88,9 @@
 		MOV CX, c       ; c accessed
 		PUSH CX
 		POP AX
+		ADD SP, 4	;freeing the stack of the local variables
 		MOV SP, BP
 		POP BP
-		ADD SP, 4	;freeing the stack of the local variables
 		RET
 	bar ENDP
 
@@ -130,7 +130,6 @@
 		PUSH AX		; pushed i
 		CALL foo
 
-		POP AX
 		MOV [BP-6], AX		; move to k
 		PUSH [BP-6]
 		MOV AX, [BP -6]		; ax =  k 
@@ -148,7 +147,6 @@
 		PUSH AX		; pushed j
 		CALL bar
 
-		POP AX
 		MOV [BP-8], AX		; move to l
 		PUSH [BP-8]
 		MOV AX, [BP -8]		; ax =  l 
@@ -197,7 +195,6 @@
 		POP CX		;6*bar(i,j)+2 popped
 		SUB CX, AX
 		PUSH CX
-		POP AX
 		MOV [BP-4], AX		; move to j
 		PUSH [BP-4]
 		MOV AX, [BP -4]		; ax =  j 

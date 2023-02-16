@@ -100,6 +100,7 @@
 
     void start_procedure(string id, string type_specifier){
         function_name = id;        
+        
         if(type_specifier != "void"){
             has_return = true;
         }
@@ -128,10 +129,10 @@
             end_main();
         }
         else {
-            code += "\t\tMOV SP, BP\n";
-            code += "\t\tPOP BP\n";
             if(total_params> 0)
                 code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n";
+            code += "\t\tMOV SP, BP\n";
+            code += "\t\tPOP BP\n";  
             code += "\t\tRET\n";
 
             write_in_code_segment(code);
@@ -1632,8 +1633,15 @@ factor : variable {
                 }
             }
 
+            // cout<<prev->get_specifier()<<endl;
+            if(prev->get_specifier() != "VOID"){
+                is_returned = true;
+            }
+            
             string code = "\n";
             for(auto x: $3->get_parameters()){
+                // PUSH ALL THE ARGUMENTS IN THE STACK AND CALL THE FUNCTION
+
                 SymbolInfo *temp = symboltable->look_up(x->get_name());
                 int stack_offset = temp->get_stack_offset();
 
