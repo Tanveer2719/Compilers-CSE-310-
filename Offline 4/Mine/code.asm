@@ -14,166 +14,147 @@
 		SUB SP, 2  	;variable i declared
 		SUB SP, 2  	;variable j declared
 		SUB SP, 2  	;variable k declared
+		SUB SP, 2  	;variable ll declared
 
-		MOV AX, 3		 ;integer found
+		;INTO THE FOR LOOP
+		MOV AX, 0		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP-2], AX		; move to i
 		PUSH [BP-2]
-		MOV AX, 8		 ;integer found
-		PUSH AX
-		POP AX
-		MOV [BP-4], AX		; move to j
-		PUSH [BP-4]
-		MOV AX, 6		 ;integer found
-		PUSH AX
-		POP AX
-		MOV [BP-6], AX		; move to k
-		PUSH [BP-6]
+	label1:				; label for checking boolean expression
 		MOV AX, [BP-2]      ; i accessed 
-		PUSH AX
-		MOV AX, 3		 ;integer found
-		PUSH AX
-		POP BX		; 3 popped
-		POP AX		; i popped
-		;CHECKING IF
-		CMP AX, BX
-		JE label1
-		PUSH 0
-		JMP label2 
-	label1:
-		PUSH 1
-	label2:
-		POP AX
-		CMP AX, 0
-		JNE label3
-		JMP label4
-	label3:
-		MOV AX, [BP -4]		; ax =  j 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-	label4:
-		MOV AX, [BP-4]      ; j accessed 
-		PUSH AX
-		MOV AX, 8		 ;integer found
-		PUSH AX
-		POP BX		; 8 popped
-		POP AX		; j popped
-		;CHECKING IF
-		CMP AX, BX
-		JL label5
-		PUSH 0
-		JMP label6 
-	label5:
-		PUSH 1
-	label6:
-		POP AX
-		CMP AX, 0
-		JNE label7
-		JMP label8
-	label7:
-		MOV AX, [BP -2]		; ax =  i 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label9
-	label8:
-		MOV AX, [BP -6]		; ax =  k 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-	label9:
-		MOV AX, [BP-6]      ; k accessed 
 		PUSH AX
 		MOV AX, 6		 ;integer found
 		PUSH AX
 		POP BX		; 6 popped
-		POP AX		; k popped
-		;CHECKING IF
-		CMP AX, BX
-		JNE label10
-		PUSH 0
-		JMP label11 
-	label10:
-		PUSH 1
-	label11:
-		POP AX
-		CMP AX, 0
-		JNE label12
-		JMP label13
-	label12:
-		MOV AX, [BP -6]		; ax =  k 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label14
-	label13:
-		MOV AX, [BP-4]      ; j accessed 
-		PUSH AX
-		MOV AX, 8		 ;integer found
-		PUSH AX
-		POP BX		; 8 popped
-		POP AX		; j popped
-		;CHECKING IF
-		CMP AX, BX
-		JG label15
-		PUSH 0
-		JMP label16 
-	label15:
-		PUSH 1
-	label16:
-		POP AX
-		CMP AX, 0
-		JNE label17
-		JMP label18
-	label17:
-		MOV AX, [BP -4]		; ax =  j 
-		CALL PRINT_NUMBER
-		CALL NEWLINE
-
-		JMP label19
-	label18:
-		MOV AX, [BP-2]      ; i accessed 
-		PUSH AX
-		MOV AX, 5		 ;integer found
-		PUSH AX
-		POP BX		; 5 popped
 		POP AX		; i popped
 		;CHECKING IF
 		CMP AX, BX
-		JL label20
+		JL label2
 		PUSH 0
-		JMP label21 
-	label20:
+		JMP label3 
+	label2:
 		PUSH 1
-	label21:
+	label3:
 		POP AX
 		CMP AX, 0
-		JNE label22
-		JMP label23
-	label22:
+		JNE label5		; move to b_true
+		JMP label4		; move to b_false
+		label6:				; label for incrementing or decrementing
+		MOV AX, [BP - 2]		; ax = i
+		INC AX		; i--
+		MOV [BP - 2], AX
+		PUSH AX
+		JMP label1		; move to the condition check again
+	label5:				 label for b_true
 		MOV AX, [BP -2]		; ax =  i 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-		JMP label24
-	label23:
-		MOV AX, 0		 ;integer found
+		JMP label6				;go to incrementing or decrementing
+		; exiting the for loop
+	label4:				 label for statements.next
+		MOV AX, 4		 ;integer found
 		PUSH AX
 		POP AX
 		MOV [BP-6], AX		; move to k
 		PUSH [BP-6]
+		MOV AX, 6		 ;integer found
+		PUSH AX
+		POP AX
+		MOV [BP-8], AX		; move to ll
+		PUSH [BP-8]
+	label7:
+		MOV AX, [BP-6]      ; k accessed 
+		PUSH AX
+		MOV AX, 0		 ;integer found
+		PUSH AX
+		POP BX		; 0 popped
+		POP AX		; k popped
+		;CHECKING IF
+		CMP AX, BX
+		JG label8
+		PUSH 0
+		JMP label9 
+	label8:
+		PUSH 1
+	label9:
+		POP AX
+		CMP AX, 0
+		JNE label11
+		JMP label10
+	label11:
+		MOV AX, [BP-8]      ; ll accessed 
+		PUSH AX
+		MOV AX, 3		 ;integer found
+		PUSH AX
+		POP AX		;3 popped
+		POP CX		;ll popped
+		ADD CX, AX
+		PUSH CX
+		POP AX
+		MOV [BP-8], AX		; move to ll
+		PUSH [BP-8]
+		MOV AX, [BP - 6]		; ax = k
+		DEC AX		; k--
+		MOV [BP - 6], AX
+		PUSH AX
+		JMP label7
+	label10:
+		MOV AX, [BP -8]		; ax =  ll 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
 		MOV AX, [BP -6]		; ax =  k 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 
-	label24:
-	label19:
+		MOV AX, 4		 ;integer found
+		PUSH AX
+		POP AX
+		MOV [BP-6], AX		; move to k
+		PUSH [BP-6]
+		MOV AX, 6		 ;integer found
+		PUSH AX
+		POP AX
+		MOV [BP-8], AX		; move to ll
+		PUSH [BP-8]
+	label12:
+		MOV AX, [BP - 6]		; ax = k
+		DEC AX		; k--
+		MOV [BP - 6], AX
+		PUSH AX
+		POP AX
+		INC AX
+		CMP AX, 0
+		JNE label14
+		JMP label13
 	label14:
+		MOV AX, [BP-8]      ; ll accessed 
+		PUSH AX
+		MOV AX, 3		 ;integer found
+		PUSH AX
+		POP AX		;3 popped
+		POP CX		;ll popped
+		ADD CX, AX
+		PUSH CX
+		POP AX
+		MOV [BP-8], AX		; move to ll
+		PUSH [BP-8]
+		JMP label12
+	label13:
+		MOV AX, [BP -8]		; ax =  ll 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
+		MOV AX, [BP -6]		; ax =  k 
+		CALL PRINT_NUMBER
+		CALL NEWLINE
+
 		MOV AX, 0		 ;integer found
 		PUSH AX
-		ADD SP ,6
+		ADD SP ,8
 		MOV SP, BP
 		POP BP
 		MOV AX, 4CH
