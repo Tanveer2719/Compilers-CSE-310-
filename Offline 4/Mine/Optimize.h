@@ -157,7 +157,7 @@ bool optimize_code(string source, string dest){
 
         // prev[0] = cmp but cur[0] != jmp
         // ignore the previous instruction
-        else if(prev_tac[0] == "CMP" && is_jump(cur_tac[0])){
+        else if(prev_tac[0] == "CMP" && ! is_jump(cur_tac[0])){
             prev_line = "";
             prev_tac.clear();
             optimized = true;

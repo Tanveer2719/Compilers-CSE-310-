@@ -66,6 +66,8 @@
 		MOV AX, [BP-4]      ; ll accessed 
 		MOV BX, AX
 		POP AX		; m popped
+		CMP AX, BX
+		JLE label1
 		PUSH 0
 		JMP label2 
 	label1:
@@ -80,6 +82,8 @@
 		MOV AX, j       ; j 
 		POP BX		; j popped
 		POP AX		; i popped
+		CMP AX, BX
+		JNE label3
 		PUSH 0
 		JMP label4 
 	label3:
@@ -96,6 +100,10 @@
 		MOV AX, [BP-10]      ; o accessed 
 		MOV BX, AX
 		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JNE label5 
+		CMP BX, 0		; if ax = 1
+		JNE label5 
 		MOV AX, 0
 		JMP label6 
 	label5: 
@@ -111,6 +119,10 @@
 		MOV AX, [BP-10]      ; o accessed 
 		MOV BX, AX
 		POP AX		; n popped
+		CMP AX, 0		; if ax = 1
+		JE label7 
+		CMP BX, 0		; if ax = 1
+		JE label7 
 		MOV AX, 1
 		JMP label8 
 	label7: 
@@ -160,6 +172,8 @@
 		PUSH CX
 		PUSH DX
 		PUSH AX
+		CMP AX, 0
+		JGE POSITIVE
 		MOV CX, AX
 		MOV AH, 2           
 		MOV DL, '-'         ;Print a '-' sign
@@ -174,6 +188,8 @@
 			DIV BX
 			PUSH DX     ;Division by 10 will have a remainder less than 8 bits
 			INC CX       ;CX++
+			CMP AX, 0
+			JE END_PUSH_WHILE
 			JMP PUSH_WHILE
 		END_PUSH_WHILE:
 			MOV AH, 2
@@ -182,6 +198,8 @@
 			ADD DL, '0'
 			INT 21H     ;So DL will have the desired character
 			DEC CX       ;CX--
+			CMP CX, 0
+			JLE END_POP_WHILE
 			JMP POP_WHILE
 			END_POP_WHILE:
 			POP AX
