@@ -130,6 +130,8 @@ void insert_function(SymbolInfo* function_name, SymbolInfo* type_specifier){
     function_name->set_parameters(symbolInfoList->get_parameters());    // sets the parameters of the function
     function_name->set_function();      
     bool flag = symboltable->insert(function_name);
+
+    
     if(flag) return;    // if insert successful then return
 
     // if there is a previous occurence of the function

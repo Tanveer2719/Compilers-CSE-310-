@@ -2,6 +2,7 @@
     #include<bits/stdc++.h>
     #include "FunctionHelper.h"
     #include "FileHelper.h"
+    #include "Optimize.h"
     
     using namespace std;
 
@@ -1758,12 +1759,13 @@ arguments : arguments COMMA {in_argument_list = true;} logic_expression {
 %%
 
 
-void open_assembly_file(){
+string open_assembly_file(){
     ofstream assembly_code;
-    assembly_code.open("code.asm");
+    string file_name = "code.asm";
+    assembly_code.open(file_name);
     if(!assembly_code.is_open()){
         cout<<"Code.asm can not be opened in open_assembly_file\n";
-        return;
+        return "";
     }
     assembly_code<<".MODEL SMALL\n";
     assembly_code<<".STACK 500H\n";
@@ -1781,6 +1783,8 @@ void open_assembly_file(){
 
     
     assembly_code.close();
+
+    return file_name;
 }
 
 void print_new_line(){
@@ -1888,6 +1892,24 @@ void terminate_assembly_file(){
 
 }
 
+void optimize_file(string file_name){
+
+    bool is_optimized = optimize_code(file_name, "temp_optmized.asm");
+
+    while(is_optimized){
+        cout<<"Optimizing ..."<<endl;
+        is_optimized = optimize_code("temp_optmized.asm", "optimized_code.asm");
+        remove("temp_optimized.asm");
+        rename("optimized_code.asm","temp_optmized.asm");
+    }
+
+
+    rename("temp_optmized.asm", "optimized_code.asm");
+
+    cout<<"Optimization completed\n";
+
+}
+
 
 
 int main(int argc, char* argv[]){
@@ -1901,7 +1923,7 @@ int main(int argc, char* argv[]){
     parse_file.open("parse.txt");
     error_file.open("error.txt");
     
-    open_assembly_file();
+    string file_name = open_assembly_file();
 
 
     yyin = file;
@@ -1912,12 +1934,12 @@ int main(int argc, char* argv[]){
     
     terminate_assembly_file();
 
+    optimize_file(file_name);
+
     parse_file.close();
     error_file.close();
     fclose(yyin);
     return 0;
-
-
 }
 
 

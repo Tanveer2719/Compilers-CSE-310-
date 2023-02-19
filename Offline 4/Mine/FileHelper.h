@@ -49,7 +49,7 @@ void write_to_file(string file_name, string text, int line_count){
     // insert new text in the correct position
     while(getline(code_file, code)){
         if(line_count == line_no){
-            temp_file<<text<<endl;
+            temp_file<<text;
             write_complete = true;
         }
         temp_file<<code<<endl;
@@ -57,7 +57,7 @@ void write_to_file(string file_name, string text, int line_count){
     }
 
     if(!write_complete){
-        temp_file<<text<<endl;
+        temp_file<<text;
         write_complete = true;
     }
 
