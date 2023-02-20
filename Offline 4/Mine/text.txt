@@ -1,8 +1,0 @@
-int i,a;
-int main(){
-	
-    a = 0;
-
-   
-}
-

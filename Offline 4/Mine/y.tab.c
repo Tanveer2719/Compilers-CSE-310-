@@ -69,176 +69,276 @@
 #line 1 "1905025_Syntax_and_Semantic_Analyzer.y"
 
     #include<bits/stdc++.h>
-    #include "1905025_Assignment_1.cpp"
+    #include "FunctionHelper.h"
+    #include "FileHelper.h"
+    #include "Optimize.h"
     
     using namespace std;
+
+    SymbolTable* symboltable =  new SymbolTable(11);    // to store the ID and others for future use
+    SymbolInfo* symbolInfoList = new SymbolInfo();      // for parameter list and declaration list purpose
+
+    // file operations  
+    ofstream parse_file;            // to print the parse tree
+    ofstream error_file;            // to print the errors
+    ofstream assembly_code;         // to print the assembly code
 
     // external variables from lexical analyzer
     extern int total_line_count;
     extern int e_count;
     extern FILE *yyin;
-    
-    // file operations
-    ofstream log_file;
-    ofstream parse_file;
-    ofstream error_file;
-    ofstream assembly_code;
 
-    // check if the main is available or not
-    bool has_main = false;
 
-    // if a function is found then it will be false
-    bool is_global = true;
-
-    // for the global variables
-    vector<string>global_vars;
-
-   
-
-    SymbolTable* symboltable =  new SymbolTable(11);
-    SymbolInfo* symbolInfoList = new SymbolInfo();      // for parameter list and declaration list purpose
-
-    void yyerror(string s){}
-
-    // label counter
+    int total_line_in_assembly = 0;
+    int end_line_of_code_segment = 0;
+    int end_line_of_data_segment = 0;
     int total_label_count = 0;
+
+
+    int total_stack_size_used_in_function = 0;
+    int stack_offset = 2;
+
+    string function_name = "";
+    bool has_return = false;        // flag to check if the function has return type or not
+    // bool is_returned = false;       // a flag to check if the function call has returned a value or not
+    bool in_argument_list = false;
+
+    
+    /*
+        return total no of line in a string
+    */
+    int line_count_in_string(string s){
+        int cnt = 0;
+        for(int i = 0;i<s.length(); i++){
+            if(s[i] == '\n')
+                cnt++;
+        }
+        return cnt;
+    }
+
     // insert new label
     string new_label(){
         total_label_count ++;
-        string s = "label ";
-        s += to_string(total_label_count);
+        string s = "label" + to_string(total_label_count);
         return s;
     }
+
+    /*
+        Increase total line in assembly along with total line in code segment
+    */
+    void increase_code_segment(string txt){
+        int x = line_count_in_string(txt);
+        end_line_of_code_segment += (x+1);
+        total_line_in_assembly += (x+1);
+    }
     
-    string stringconcat(vector<SymbolInfo*> symbolInfoList){
-        string result = "";
-        for(auto x : symbolInfoList){
-            result += x->get_name();
-        }
-        return result;
+    void write_in_code_segment(string text){
+        write_to_file("code.asm", text,end_line_of_code_segment);
+        increase_code_segment(text);
     }
 
-    void write_error(string s){
-        e_count++;
-        error_file<<"Line# "<<total_line_count<<": "<<s<<"\n";
+    void increase_data_segment(string txt){
+        int x = line_count_in_string(txt);
+        end_line_of_data_segment += x;
+        end_line_of_code_segment += x;
+        total_line_in_assembly += x;
     }
 
-    bool isVoid(SymbolInfo* symbolInfo){
-        if(symbolInfo->get_specifier() == "VOID"){
-	        write_error("Void cannot be used in '"+ symbolInfo->get_name()+"'");
-            return true;
-        }
+    void write_in_data_segment(string text){
+        write_to_file("code.asm", text,end_line_of_data_segment);
+        increase_data_segment(text);
+    }
         
-        return false;
+    /*
+        move all from the data segment to the code segment
+    */
+    void declare_main(){
+        string text = "\t\tMOV AX, @DATA\n\t\tMOV DS, AX\n\t\tPUSH BP\n\t\tMOV BP, SP \n\n";
+        write("code.asm", text, true);
+        increase_code_segment(text);
     }
 
-    void print_debug(int line, string message){
-        cout<<"AT line no : "<<line<<" of VS code and  line no : "<<total_line_count<<" of program : "<<message<<endl;
+    /*
+        end the main procedure
+    */
+    void end_main(){
+        string text = "\t\tADD SP ," + to_string(total_stack_size_used_in_function*2)+ "\n";
+        text += "\t\tMOV SP, BP\n\t\tPOP BP\n";
+        text += "\t\tMOV AX, 4CH\n\t\tINT 21H\n";
+        write("code.asm", text, true);
+        increase_code_segment(text);
     }
 
-    // inserts the function to the current scope
-    void insert_function(SymbolInfo* function_name, SymbolInfo* type_specifier){
-        function_name->set_specifier(type_specifier->get_specifier());      // sets the return type of the function
-        function_name->set_parameters(symbolInfoList->get_parameters());    // sets the parameters of the function
-        function_name->set_function();      
-        bool flag = symboltable->insert(function_name);
-        if(flag) return;    // if insert successful then return
-
-        // if there is a previous occurence of the function
-        SymbolInfo* prev = symboltable->look_up(function_name->get_name());
+    void start_procedure(string id, string type_specifier){
+        function_name = id;        
         
-        // check possible error scopes
-        if(! prev-> is_function()){ 
-            /*
-                int a();
-                int a = 8;
-            */
-            write_error("'" + prev->get_name() + "' redeclared as different kind of symbol");
+        if(type_specifier != "void"){
+            has_return = true;
+        }
 
+        stack_offset = 2;
+        string code = "\t" + id + " PROC";
+        write("code.asm", code, true);
+        increase_code_segment(code);
+
+        if(id == "main"){
+            declare_main();
         }else{
-            if(prev->get_specifier() != function_name->get_specifier()){
-                write_error("Conflicting types for '"+ prev->get_name()+"'");
-            }
+            code ="\t\t;starting procedure " + id + "\n";
+            code += "\t\tPUSH BP\t\t;save BP\n";
+            code += "\t\tMOV BP, SP\t\t;make BP = SP\n";
+            write("code.asm", code, true);
+            increase_code_segment(code); 
+        }
 
-            else if(prev->get_parameters().size() !=  function_name->get_parameters().size()){
-                write_error("Conflicting types for '"+ prev->get_name()+"'");
+    }
 
+    void end_procedure(SymbolInfo* function, int total_params){
+        string code = "\t\tPOP AX\n";
+
+        if(function->get_name() == "main"){
+            end_main();
+        }
+        else if(! has_return) {
+            if(total_params> 0)
+                code += "\t\tADD SP, "+ to_string(2*total_params)+ "\t;freeing the stack of the local variables\n";
+            code += "\t\tMOV SP, BP\n";
+            code += "\t\tPOP BP\n";  
+            code += "\t\tRET "+ to_string(2*total_params)+"\n";
+
+            write_in_code_segment(code);
+        }
+        write("code.asm", "\t" + function->get_name()+ + " ENDP\n", true);
+        total_line_in_assembly += 1; 
+
+    }
+
+    void variable_operation(SymbolInfo* x){
+
+        if(symboltable->get_current_scope_id() != 1){
+            if(! x->is_array()){
+                string code = "\t\tSUB SP, 2  \t;variable "+ x->get_name()+ " declared\n";
+                write_in_code_segment(code);
+                x->set_stack_offset(stack_offset);
+                stack_offset += 2;
             }else{
-                auto prevArgs = prev->get_parameters();         // the previously declared function's parameters 
-                auto curArgs = function_name->get_parameters(); // now defined function's pram
+                int size = x->get_size();
+                string code = "\t\tSUB SP, "+ to_string(size*2) + " \t;array "+ x->get_name() + "[" + to_string(size) + "] declared\n";
+                write_in_code_segment(code);
+                x->set_stack_offset(stack_offset);
+                stack_offset += 2*size;
+            } 
+        }else{
+            // if global variable
+            if(! x->is_array()){
+                string code = "\t" + x->get_name() + " DW ? \t;global variable "+x->get_name() +" declared\n";
+                write_in_data_segment(code);
+            }else{
+                int size = x->get_size();
+                string code = "\t" + x->get_name() + " DW "+to_string(size) +" DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
+                write_in_data_segment(code);
+            }                
+        }
 
-                for(int i = 0;i<prevArgs.size(); i++){
-                    if(prevArgs[i]->get_specifier() != curArgs[i]->get_specifier()){
-                        write_error("Type mismatch for argument "+to_string(i+1)+" of '"+ prev->get_name()+"'");
-                    }
+        symboltable->insert(x);
+
+    }
+
+    string get_relational_command(string op){
+        // "<"|"<="|">"|">="|"=="|"!="
+        if(op == "<"){
+            return "JL";
+        }else if(op == "<="){
+            return "JLE";
+        }else if(op == ">"){
+            return "JG";
+        }else if(op == ">="){
+            return "JGE";
+        }else if(op == "=="){
+            return "JE";
+        }else if(op == "!="){
+            return "JNE";
+        }
+    }
+
+    void varable_incop_decop_operation(string name, string op){
+        // search the variable in the symboltable
+        SymbolInfo* prev = symboltable->look_up(name);
+        // find its stack_offset
+        int stack_offset = prev->get_stack_offset();
+        // find the size
+        int size = prev->get_size();
+        
+        string code = "";
+        if(size > 0){
+            // it is an array 
+            // the array index will be at the top of the stack
+            // pop the index
+            code += "\t\tPOP AX\t\t; get the array index\n";
+            code += "\t\tMOV BX, 2\n";
+            code += "\t\tMUL BX\t\t; get the actual position of the index\n";
+            code += "\t\tMOV BX, AX\n";
+
+            if(stack_offset != -1 ){
+                // not global
+                code += "\t\tPUSH BP\t\t ; save BP \n";
+                code += "\t\tADD BX, "+ to_string(stack_offset) + "\t\t; move bx to the actual position from BP\n";
+                if(prev->is_param()){
+                    code += "\t\tADD BX, 2\n";
+                    code += "\t\tADD BP, BX\n";  
+                }else{
+                    code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
                 }
+                code += "\t\tMOV AX, [BP]\n";
+                code += "\t\t"+op+" AX\t\t;  AX INC/DEC \n";
+                code += "\t\tMOV [BP], AX\n";
+                code += "\t\tPOP BP\n";
+            }else {
+                // global
+                code += "\t\tMOV AX, " + name+ "[BX]\n";
+                code += "\t\t"+op +" AX\t\t ; get ax = "+name+"[bx]\n" ;
+                code += "\t\tMOV " + name + "[BX] , AX \n";
+            }
+        } else{
+            // it is a variable
+            if(stack_offset == -1){
+                code += "\t\tMOV AX, "+name + "\t\t ; ax = " +name+"\n"; 
+                code += "\t\t"+op +" AX \t\t; " + name + "--\n";
+                code += "\t\tMOV " + name + ", AX\n";
+            }else if(stack_offset == 0){
+                code += "\t\tMOV AX, [BP]\t\t; ax = " +name+"\n";
+                code += "\t\t"+op +" AX\t\t; " +name+"-- \n";
+                code += "\t\tMOV [BP],  AX \n";
+            }else{
+                if(prev->is_param()){
+                    stack_offset += 2;
+                    code += "\t\tMOV AX, [BP + "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
+                    code += "\t\t"+op+" AX\t\t; " +name+"--\n";
+                    code += "\t\tMOV [BP + "+ to_string(stack_offset) + "], AX\n";
+                }else{
+                    cout<<total_line_count<<" "<<name<<" is param 0\n"; 
+                    code += "\t\tMOV AX, [BP - "+to_string(stack_offset)+"]\t\t; ax = " +name+"\n";
+                    code += "\t\t"+op+" AX\t\t; " +name+"--\n";
+                    code += "\t\tMOV [BP - "+ to_string(stack_offset) + "], AX\n";
+                }  
             }
         }
+
+        code += "\t\tPUSH AX\n";
+
+        write_in_code_segment(code);
+
     }
 
-    void write_to_log(string left, string right){
-        // log_file<<left<<" : "<<right<<"\n"; 
-    }
-
-    void write_to_console(string s, string t){
-        cout<<"Line- "<<total_line_count<<" rule: "<<s<<" : "<<t<<endl;
-    }
-
-    string type_casting(SymbolInfo* s1, SymbolInfo* s2) {
-        string l = s1->get_specifier();
-        string r = s2->get_specifier();
-
-        if (l == "error" || r == "error"){
-            return "error";
-        }
-        else if (l == "VOID" || r == "VOID"){
-            return "error";
-        }
-        else if(l == "INT" && r == "FLOAT"){
-            write_error("Warning: possible loss of data in assignment of FLOAT to INT ");
-            return "INT";
-        } 
-        else if(l == "FLOAT" && r == "FLOAT"){
-            return "FLOAT";
-        }
-        else {
-            return "INT";
-        }
-    }
-
-    void print_parse_tree(SymbolInfo* symbolInfo, int depth){
-        string s ="";
-        for(int x= 0;x<depth;x++){
-            s+=" ";
-        }
-        s = s + symbolInfo->get_type() + " : ";
-
-        if(symbolInfo->is_leaf()){
-            s = s+ symbolInfo->get_name() +"\t<Line: " + to_string(symbolInfo->get_start_line()) +">\n";
-            
-            parse_file<<s;
-            // cout<<s;
-            return;
-        }
-
-        auto child_list = symbolInfo->get_child_list();
-        for(SymbolInfo* x: child_list){
-            s = s+ x->get_type() + " "; 
-        }
-        s = s + "\t<Line: " + to_string(child_list[0]->get_start_line()) + "-" + to_string(child_list[child_list.size()-1]->get_end_line()) +">\n";
-        parse_file<<s;
-        // cout<<s;
-        for(auto x: child_list){
-            print_parse_tree(x, depth+1);
-        }
-        
-    }
     
+
+
+    void yyerror(string s){}
     int yyparse(void);
     int yylex(void);
 
 
-#line 242 "y.tab.c"
+#line 342 "y.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -372,17 +472,18 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 union semrec
 {
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 
     SymbolInfo* symbolInfo;
+    int line;
 
-#line 383 "y.tab.c"
+#line 484 "y.tab.c"
 
 };
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 typedef union semrec YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
@@ -699,16 +800,16 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  11
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   202
+#define YYLAST   186
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  43
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  32
+#define YYNNTS  40
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  78
+#define YYNRULES  87
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  136
+#define YYNSTATES  145
 
 #define YYUNDEFTOK  2
 #define YYMAXUTOK   297
@@ -759,14 +860,15 @@ static const yytype_int8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   187,   187,   294,   309,   326,   340,   353,   369,   391,
-     412,   433,   433,   476,   476,   519,   533,   550,   569,   585,
-     603,   618,   633,   649,   671,   717,   743,   754,   765,   779,
-     795,   816,   829,   848,   862,   873,   887,   897,   907,   917,
-     917,   917,   917,   929,   941,   952,   952,   963,   977,   977,
-     989,   999,  1010,  1026,  1051,  1085,  1096,  1121,  1134,  1157,
-    1174,  1196,  1213,  1242,  1259,  1302,  1319,  1337,  1357,  1377,
-    1398,  1412,  1425,  1445,  1463,  1525,  1536,  1569,  1587
+       0,   288,   288,   299,   308,   321,   330,   338,   349,   367,
+     385,   404,   404,   404,   416,   416,   416,   428,   439,   453,
+     469,   482,   497,   509,   522,   537,   580,   597,   622,   630,
+     638,   649,   664,   681,   692,   705,   716,   725,   738,   754,
+     761,   783,   790,   797,   804,   804,   804,   835,   850,   850,
+     872,   879,   872,   918,   949,   949,   971,   979,   987,  1002,
+    1023,  1056,  1064,  1140,  1152,  1207,  1220,  1258,  1271,  1300,
+    1316,  1372,  1395,  1404,  1418,  1483,  1500,  1511,  1522,  1540,
+    1558,  1645,  1654,  1661,  1684,  1684,  1698,  1698
 };
 #endif
 
@@ -782,12 +884,13 @@ static const char *const yytname[] =
   "CHAR", "DOUBLE", "DECOP", "RETURN", "CASE", "CONTINUE", "CONST_CHAR",
   "CONST_INT", "CONST_FLOAT", "PRINT", "ID", "MULOP", "THEN", "$accept",
   "start", "program", "unit", "func_declaration", "func_definition", "$@1",
-  "$@2", "parameter_list", "compound_statement", "modified_lcurl",
-  "var_declaration", "type_specifier", "declaration_list", "statements",
-  "statement", "$@3", "$@4", "$@5", "$@6", "$@7", "expression_statement",
-  "variable", "expression", "logic_expression", "rel_expression",
-  "simple_expression", "term", "unary_expression", "factor",
-  "argument_list", "arguments", YY_NULLPTR
+  "$@2", "$@3", "$@4", "parameter_list", "compound_statement",
+  "modified_lcurl", "var_declaration", "type_specifier",
+  "declaration_list", "statements", "if_block", "init_for",
+  "check_boolean", "statement", "$@5", "$@6", "@7", "@8", "@9", "$@10",
+  "expression_statement", "variable", "expression", "logic_expression",
+  "rel_expression", "simple_expression", "term", "unary_expression",
+  "factor", "argument_list", "arguments", "$@11", "$@12", YY_NULLPTR
 };
 #endif
 
@@ -804,12 +907,12 @@ static const yytype_int16 yytoknum[] =
 };
 # endif
 
-#define YYPACT_NINF (-68)
+#define YYPACT_NINF (-95)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-32)
+#define YYTABLE_NINF (-83)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -818,20 +921,21 @@ static const yytype_int16 yytoknum[] =
      STATE-NUM.  */
 static const yytype_int16 yypact[] =
 {
-      65,   -68,   -68,   -68,    16,    65,   -68,   -68,   -68,   -68,
-      11,   -68,   -68,     0,   155,    88,   -68,   -68,   -23,    98,
-     -15,   -68,    26,    31,    48,    54,     9,    29,   -68,    72,
-     -68,    59,    50,    65,   -68,   -68,    30,   -68,   -68,   -68,
-     -68,   -68,    59,    43,    83,    70,   -68,   -68,   -68,    85,
-      86,    89,   -68,   -68,   162,   162,    90,   162,    91,   162,
-     -68,   -68,    67,   -68,   -68,    14,   108,   -68,   -68,    -5,
-     103,   -68,    99,    47,    74,   -68,   -68,   -68,   162,    60,
-      -4,   -68,   120,    28,   -68,   162,   -68,   162,   162,   131,
-     -68,   -68,   -68,   162,   -68,   -68,   162,   162,   162,   162,
-     121,   122,   -68,   -68,   -68,   119,   127,   -68,   133,   130,
-     -68,   -68,   110,    74,   -68,   146,   134,    28,   140,   -68,
-     -68,   -68,   162,   123,   -68,   -68,   146,   -68,   146,   162,
-     -68,   -68,   -68,   149,   146,   -68
+      94,   -95,   -95,   -95,    38,    94,   -95,   -95,   -95,   -95,
+      15,   -95,   -95,    51,   146,    35,   -95,   -95,    50,    89,
+      32,   -95,    90,   102,   110,    33,    13,    85,   -95,    60,
+     -95,   -95,   116,    94,   -95,   -95,    91,   -95,   -95,   -95,
+     121,   -95,   -95,    95,   127,    61,   -95,   121,   -95,   -95,
+     120,   126,   129,   -95,   -95,    -6,    -6,   -95,    -6,   130,
+      -6,   -95,   -95,    92,   -95,   -95,    17,    99,   -95,   -95,
+      47,   139,   -95,   132,     0,   109,   -95,   -95,   -95,   -95,
+      -6,   113,    -2,   -95,   159,   149,   -95,   -95,   -95,    -6,
+     162,   122,   -95,   -95,   -95,    -6,   -95,   -95,    -6,    -6,
+      -6,    -6,   163,   164,   -95,    14,    -6,   160,   165,   167,
+      87,    -6,   -95,   -95,   148,   109,   -95,   -95,   169,   -95,
+     -95,   -95,   -95,   -95,   -95,   -95,   -95,   137,   -95,    14,
+     172,    -6,   152,   -95,   137,   -95,   -95,    -6,   -95,   137,
+     -95,   -95,   176,   137,   -95
 };
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -839,38 +943,39 @@ static const yytype_int16 yypact[] =
      means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       0,    26,    27,    28,     0,     2,     4,     6,     7,     5,
-       0,     1,     3,     0,     0,     0,    25,    33,     0,     0,
-       0,    24,     0,     0,    13,     0,     0,    29,    32,     0,
-       9,     0,    11,     0,    20,    18,     0,    23,    10,    15,
-      14,     8,     0,    17,     0,     0,    12,    16,    30,     0,
-       0,     0,    50,    22,     0,     0,     0,     0,     0,     0,
-      70,    71,    53,    38,    36,     0,     0,    34,    37,    68,
-       0,    55,    57,    59,    61,    63,    67,    52,     0,     0,
-      68,    66,     0,     0,    65,     0,    48,     0,    76,     0,
-      21,    35,    72,     0,    73,    51,     0,     0,     0,     0,
-       0,     0,    69,    39,    45,     0,     0,    78,     0,    75,
-      56,    58,    60,    62,    64,     0,     0,     0,     0,    49,
-      54,    74,     0,    43,    47,    40,     0,    77,     0,     0,
-      46,    44,    41,     0,     0,    42
+       0,    28,    29,    30,     0,     2,     4,     6,     7,     5,
+       0,     1,     3,     0,     0,     0,    27,    35,     0,     0,
+       0,    26,     0,     0,    14,     0,     0,    31,    34,     0,
+       9,    15,    11,     0,    22,    20,     0,    25,    10,    17,
+       0,     8,    12,    19,     0,     0,    16,     0,    18,    32,
+       0,     0,     0,    56,    24,     0,     0,    44,     0,     0,
+       0,    76,    77,    59,    43,    41,     0,     0,    36,    42,
+      74,     0,    61,    63,    65,    67,    69,    73,    13,    58,
+       0,     0,    74,    72,     0,     0,    71,    50,    54,     0,
+      86,     0,    23,    37,    78,     0,    79,    57,     0,     0,
+       0,     0,     0,     0,    75,     0,     0,     0,     0,     0,
+       0,     0,    62,    64,    66,    68,    70,    38,     0,    39,
+      51,    55,    60,    80,    83,    84,    87,     0,    53,     0,
+       0,     0,    47,    40,     0,    85,    48,     0,    52,     0,
+      45,    49,     0,     0,    46
 };
 
   /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int16 yypgoto[] =
 {
-     -68,   -68,   -68,   152,   -68,   -68,   -68,   -68,   -68,   -11,
-     -68,    34,    19,   -68,   -68,   -65,   -68,   -68,   -68,   -68,
-     -68,   -61,   -52,   -55,   -67,    58,    61,    64,   -51,   -68,
-     -68,   -68
+     -95,   -95,   -95,   177,   -95,   -95,   -95,   -95,   -95,   -95,
+     -95,    45,   -95,    22,     7,   -95,   -95,   -95,   -95,   -95,
+     -66,   -95,   -95,   -95,   -95,   -95,   -95,   -94,   -53,   -56,
+     -75,    83,    84,    86,   -52,   -95,   -95,   -95,   -95,   -95
 };
 
   /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int16 yydefgoto[] =
 {
-      -1,     4,     5,     6,     7,     8,    42,    31,    25,    63,
-      45,    64,    65,    15,    66,    67,   117,   129,   133,   118,
-     105,    68,    69,    70,    71,    72,    73,    74,    75,    76,
-     108,   109
+      -1,     4,     5,     6,     7,     8,    42,    47,    31,    40,
+      25,    64,    45,    65,    66,    15,    67,   127,   129,   137,
+      68,    85,   142,   139,   106,   130,   107,    69,    70,    71,
+      72,    73,    74,    75,    76,    77,   109,   110,   131,   111
 };
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -878,98 +983,97 @@ static const yytype_int16 yydefgoto[] =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int16 yytable[] =
 {
-      82,    91,    80,    81,    86,    80,    84,    92,    92,    16,
-      34,    93,    13,   -19,    22,    13,    11,   -19,    39,    10,
-      40,   107,   103,   100,    10,    27,   110,    94,    94,    49,
-     104,    46,   106,    28,     9,    29,    80,    52,    26,     9,
-      36,    80,    54,    55,    80,    80,    80,    80,   114,    35,
-     123,    14,    43,    57,    89,   127,   125,    30,    32,    41,
-      97,   130,    33,   131,    37,    60,    61,    44,    62,   135,
-      80,    49,    98,    50,   132,    37,    51,    37,    87,    52,
-      53,    38,    88,    47,    54,    55,     1,     2,     3,    56,
-      48,     1,     2,     3,    77,    57,    20,    21,    58,    23,
-     101,    78,    24,    59,    79,    83,    85,    60,    61,    49,
-      62,    50,    95,    37,    51,    99,    96,    52,    90,     1,
-       2,     3,    54,    55,   102,   115,   116,    56,   119,     1,
-       2,     3,    17,    57,   120,    98,    58,   121,   122,   -31,
-     -31,    59,    18,   124,   126,    60,    61,    49,    62,    50,
-     128,    37,    51,   134,   111,    52,    17,    12,   112,     0,
-      54,    55,   113,   -31,   -31,    56,    18,     1,     2,     3,
-      19,    57,     0,     0,    58,     0,    54,    55,     0,    59,
-       0,     0,     0,    60,    61,     0,    62,    57,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,    60,
-      61,     0,    62
+      84,    93,    82,    83,    88,    82,    86,    10,    55,    56,
+      94,   119,    10,    99,    34,    50,    13,   -21,    13,    58,
+     112,   -21,     9,    53,   102,   100,    26,     9,    55,    56,
+      96,    61,    62,   108,    63,   133,   126,    32,    11,    58,
+      43,    33,    82,    20,    21,    82,    82,    82,    82,   116,
+     120,    61,    62,    35,    63,    14,   135,    91,    82,    94,
+      16,   132,    50,    95,    51,    37,    37,    52,   138,    38,
+      53,    54,    27,   141,    39,    55,    56,   144,    82,    96,
+      57,   140,     1,     2,     3,    46,    58,    22,   124,    59,
+      23,   -81,    78,    24,    60,   125,    36,    28,    61,    62,
+      50,    63,    51,    89,    37,    52,    29,    90,    53,    92,
+       1,     2,     3,    55,    56,     1,     2,     3,    57,    30,
+       1,     2,     3,    17,    58,    41,    37,    59,    44,    79,
+     -33,   -33,    60,    18,    49,    48,    61,    62,    50,    63,
+      51,    80,    37,    52,    81,    87,    53,    17,    97,    98,
+     101,    55,    56,   103,   -33,   -33,    57,    18,     1,     2,
+       3,    19,    58,   104,   105,    59,   -82,   117,   118,   121,
+      60,   123,   122,   100,    61,    62,   134,    63,   128,   136,
+     143,   113,    12,   114,     0,     0,   115
 };
 
 static const yytype_int16 yycheck[] =
 {
-      55,    66,    54,    54,    59,    57,    57,    12,    12,     9,
-       1,    16,     1,     4,    37,     1,     0,     8,    29,     0,
-      31,    88,    83,    78,     5,    40,    93,    32,    32,     1,
-      85,    42,    87,     7,     0,     4,    88,     9,    19,     5,
-      11,    93,    14,    15,    96,    97,    98,    99,    99,    40,
-     115,    40,    33,    25,    40,   122,   117,     9,     4,     9,
-      13,   126,     8,   128,     5,    37,    38,    37,    40,   134,
-     122,     1,    25,     3,   129,     5,     6,     5,    11,     9,
-      10,     9,    15,    40,    14,    15,    21,    22,    23,    19,
-       7,    21,    22,    23,     9,    25,     8,     9,    28,     1,
-      40,    15,     4,    33,    15,    15,    15,    37,    38,     1,
-      40,     3,     9,     5,     6,    41,    17,     9,    10,    21,
-      22,    23,    14,    15,     4,     4,     4,    19,     9,    21,
-      22,    23,     1,    25,     7,    25,    28,     4,     8,     8,
-       9,    33,    11,     9,     4,    37,    38,     1,    40,     3,
-      27,     5,     6,     4,    96,     9,     1,     5,    97,    -1,
-      14,    15,    98,     8,     9,    19,    11,    21,    22,    23,
-      15,    25,    -1,    -1,    28,    -1,    14,    15,    -1,    33,
-      -1,    -1,    -1,    37,    38,    -1,    40,    25,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    37,
-      38,    -1,    40
+      56,    67,    55,    55,    60,    58,    58,     0,    14,    15,
+      12,   105,     5,    13,     1,     1,     1,     4,     1,    25,
+      95,     8,     0,     9,    80,    25,    19,     5,    14,    15,
+      32,    37,    38,    89,    40,   129,   111,     4,     0,    25,
+      33,     8,    95,     8,     9,    98,    99,   100,   101,   101,
+     106,    37,    38,    40,    40,    40,   131,    40,   111,    12,
+       9,   127,     1,    16,     3,     5,     5,     6,   134,     9,
+       9,    10,    40,   139,    29,    14,    15,   143,   131,    32,
+      19,   137,    21,    22,    23,    40,    25,    37,     1,    28,
+       1,     4,    47,     4,    33,     8,    11,     7,    37,    38,
+       1,    40,     3,    11,     5,     6,     4,    15,     9,    10,
+      21,    22,    23,    14,    15,    21,    22,    23,    19,     9,
+      21,    22,    23,     1,    25,     9,     5,    28,    37,     9,
+       8,     9,    33,    11,     7,    40,    37,    38,     1,    40,
+       3,    15,     5,     6,    15,    15,     9,     1,     9,    17,
+      41,    14,    15,    40,     8,     9,    19,    11,    21,    22,
+      23,    15,    25,     4,    15,    28,     4,     4,     4,     9,
+      33,     4,     7,    25,    37,    38,     4,    40,     9,    27,
+       4,    98,     5,    99,    -1,    -1,   100
 };
 
   /* YYSTOS[STATE-NUM] -- The (internal number of the) accessing
      symbol of state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,    21,    22,    23,    44,    45,    46,    47,    48,    54,
-      55,     0,    46,     1,    40,    56,     9,     1,    11,    15,
-       8,     9,    37,     1,     4,    51,    55,    40,     7,     4,
-       9,    50,     4,     8,     1,    40,    11,     5,     9,    52,
-      52,     9,    49,    55,    37,    53,    52,    40,     7,     1,
-       3,     6,     9,    10,    14,    15,    19,    25,    28,    33,
-      37,    38,    40,    52,    54,    55,    57,    58,    64,    65,
-      66,    67,    68,    69,    70,    71,    72,     9,    15,    15,
-      65,    71,    66,    15,    71,    15,    66,    11,    15,    40,
-      10,    58,    12,    16,    32,     9,    17,    13,    25,    41,
-      66,    40,     4,    64,    66,    63,    66,    67,    73,    74,
-      67,    68,    69,    70,    71,     4,     4,    59,    62,     9,
-       7,     4,     8,    58,     9,    64,     4,    67,    27,    60,
-      58,    58,    66,    61,     4,    58
+       0,    21,    22,    23,    44,    45,    46,    47,    48,    56,
+      57,     0,    46,     1,    40,    58,     9,     1,    11,    15,
+       8,     9,    37,     1,     4,    53,    57,    40,     7,     4,
+       9,    51,     4,     8,     1,    40,    11,     5,     9,    54,
+      52,     9,    49,    57,    37,    55,    54,    50,    40,     7,
+       1,     3,     6,     9,    10,    14,    15,    19,    25,    28,
+      33,    37,    38,    40,    54,    56,    57,    59,    63,    70,
+      71,    72,    73,    74,    75,    76,    77,    78,    54,     9,
+      15,    15,    71,    77,    72,    64,    77,    15,    72,    11,
+      15,    40,    10,    63,    12,    16,    32,     9,    17,    13,
+      25,    41,    72,    40,     4,    15,    67,    69,    72,    79,
+      80,    82,    73,    74,    75,    76,    77,     4,     4,    70,
+      72,     9,     7,     4,     1,     8,    73,    60,     9,    61,
+      68,    81,    63,    70,     4,    73,    27,    62,    63,    66,
+      72,    63,    65,     4,    63
 };
 
   /* YYR1[YYN] -- Symbol number of symbol that rule YYN derives.  */
 static const yytype_int8 yyr1[] =
 {
        0,    43,    44,    45,    45,    46,    46,    46,    47,    47,
-      47,    49,    48,    50,    48,    48,    51,    51,    51,    51,
-      51,    52,    52,    53,    54,    54,    55,    55,    55,    56,
-      56,    56,    56,    56,    57,    57,    58,    58,    58,    59,
-      60,    61,    58,    58,    58,    62,    58,    58,    63,    58,
-      64,    64,    64,    65,    65,    66,    66,    67,    67,    68,
-      68,    69,    69,    70,    70,    71,    71,    71,    72,    72,
-      72,    72,    72,    72,    72,    73,    73,    74,    74
+      47,    49,    50,    48,    51,    52,    48,    48,    53,    53,
+      53,    53,    53,    54,    54,    55,    56,    56,    57,    57,
+      57,    58,    58,    58,    58,    58,    59,    59,    60,    61,
+      62,    63,    63,    63,    64,    65,    63,    63,    66,    63,
+      67,    68,    63,    63,    69,    63,    70,    70,    70,    71,
+      71,    72,    72,    73,    73,    74,    74,    75,    75,    76,
+      76,    77,    77,    77,    78,    78,    78,    78,    78,    78,
+      78,    79,    79,    79,    81,    80,    82,    80
 };
 
   /* YYR2[YYN] -- Number of symbols on the right hand side of rule YYN.  */
 static const yytype_int8 yyr2[] =
 {
        0,     2,     1,     2,     1,     1,     1,     1,     6,     5,
-       6,     0,     7,     0,     6,     6,     4,     3,     2,     1,
-       2,     4,     3,     0,     3,     3,     1,     1,     1,     3,
-       6,     1,     4,     2,     1,     2,     1,     1,     1,     0,
-       0,     0,    10,     5,     7,     0,     6,     5,     0,     4,
-       1,     2,     2,     1,     4,     1,     3,     1,     3,     1,
-       3,     1,     3,     1,     3,     2,     2,     1,     1,     3,
-       1,     1,     2,     2,     4,     1,     0,     3,     1
+       6,     0,     0,     8,     0,     0,     7,     6,     4,     3,
+       2,     1,     2,     4,     3,     0,     3,     3,     1,     1,
+       1,     3,     6,     1,     4,     2,     1,     2,     0,     0,
+       0,     1,     1,     1,     0,     0,    11,     6,     0,     9,
+       0,     0,     7,     5,     0,     4,     1,     2,     2,     1,
+       4,     1,     3,     1,     3,     1,     3,     1,     3,     1,
+       3,     2,     2,     1,     1,     3,     1,     1,     2,     2,
+       4,     1,     0,     2,     0,     4,     0,     2
 };
 
 
@@ -1665,141 +1769,36 @@ yyreduce:
   switch (yyn)
     {
   case 2:
-#line 187 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 288 "1905025_Syntax_and_Semantic_Analyzer.y"
                 {
-            // write_to_log("start", "program");
-            //write_to_console("start", "program");
-
             (yyval.symbolInfo) = new SymbolInfo("","start");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
-
-            if(!has_main){
-                cout<<"There is no main function\n";
-            }
-            
-            
-            
-            // perform action only if error count  = 0
-            if(e_count == 0){
-           
-             /* .MODEL SMALL
-                .STACK 1000H
-                .DATA
-                    cr equ 0dh
-                    nl equ 0ah
-             all other global variables make them word type */
-                
-                assembly_code<<".MODEL SMALL\n.STACK 1000H\n.DATA\n\t\CR EQU ODH\n\tNL EQU 0AH\n" ;
-                for(auto var:global_vars)
-                    assembly_code<<'\t'<<var<<" DW 0\n";
-                
-                
-                // write procedure for newLine
-                /* NEWLINE PROC
-                    push ax
-                    push dx
-                    mov ah, 2
-                    mov dl, cr
-                    int 21h
-                    mov dl, nl
-                    int 21h
-                    pop dx
-                    pop ax
-                    ret
-                    NEW LINE ENDP */
-                assembly_code<<"\n.CODE\n\nNEWLINE PROC\n\tPUSH AX\n\tPUSH DX\n\tMOV AH, 2\n\tMOV DL,CR\n\tINT 21H\n\tMOV DL,NL\n\tINT 21H\n\tPOP DX\n\tPOP AX\n\tRET\nNEWLINE ENDP";
-
-                // procedure to print a number
-                /* PRINT PROC
-                    push cx
-                    push bx
-                    push dx
-                    push ax
-                    
-                    ;INITIALIZE COUNT
-                    MOV CX, 0
-                    MOV DX, 0
-                    
-                    EXTRACT:
-                        CMP AX, 0
-                        JE SHOW
-                        
-                        MOV BX, 10
-                        
-                        DIV BX      ; AX/BX
-                        
-                        PUSH DX     ;PUSH THE REMAINDER IN STACK
-                        
-                        XOR DX, DX  ;CLEAR THE REMAINDER
-                        INC CX      ;INCREASE COUNT
-                        
-                        JMP EXTRACT
-            
-        
-                    SHOW:
-                        CMP CX, 0
-                        JE E       ; IF COUNT = 0 RETURN
-                        
-                        POP DX
-                        ADD DX, 48    ;POP DX AND ADD 48 WITH DX TO MAKE IT ASCII
-                        
-                        MOV AH, 2
-                        INT 21H
-                        DEC CX
-                        JMP SHOW
-                        
-                    E: 
-                        POP AX
-                        POP DX
-                        POP BX
-                        POP CX
-                        
-                        RET   
-                PRINT ENDP */
-                assembly_code<<"\n\nPRINT_NUMBER PROC\n\t\PUSH CX\n\t\PUSH BX\n\t\PUSH DX\n\t\PUSH AX\n\t\MOV CX, 0\n\t\MOV DX,0";
-                assembly_code<<"\n\n\tEXTRACT: \n\t\tCMP AX, O\n\t\tJE SHOW\n\t\tMOV BX, 10\n\t\tDIV BX\n\t\tPUSH DX\n\t\tXOR DX,DX\n\t\tINC CX\n\tJMP EXTRACT";
-                assembly_code<<"\n\n\tSHOW: \n\t\tCMP CX, 0\n\t\tJE E\n\t\tPOP DX\n\t\tADD DX,48\n\t\tMOV AH,2\n\t\tINT 21H\n\t\tDEC CX\n\tJMP SHOW";
-                assembly_code<<"\n\n\tE: \n\t\tPOP AX\n\t\tPOP DX\n\t\tPOP BX\n\t\tPOP CX\n\tRET\n\nPRINT_NUMBER ENDP";
-
-                /* assembly_code<<$$->code<<"\n"; */
-                assembly_code<<"\nEND MAIN";
-            
-            }
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
             print_parse_tree((yyval.symbolInfo), 0);    
     }
-#line 1775 "y.tab.c"
+#line 1783 "y.tab.c"
     break;
 
   case 3:
-#line 294 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 299 "1905025_Syntax_and_Semantic_Analyzer.y"
                        {
-            // write_to_log("program", "program unit");
-            //write_to_console("program", "program unit");
-
             (yyval.symbolInfo) = new SymbolInfo("", "program");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
 
             (yyval.symbolInfo)->set_start_line((yyvsp[-1].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
-
-            (yyval.symbolInfo)->code += (yyvsp[-1].symbolInfo)->code + "\n";
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code + "\n";
             
         }
-#line 1795 "y.tab.c"
+#line 1797 "y.tab.c"
     break;
 
   case 4:
-#line 309 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 308 "1905025_Syntax_and_Semantic_Analyzer.y"
                {
-            // write_to_log("program", "unit");
-            //write_to_console("program", "unit");
-
             (yyval.symbolInfo) = new SymbolInfo("", "program");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
 
@@ -1807,74 +1806,54 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
 
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code + "\n";
             
     }
-#line 1814 "y.tab.c"
+#line 1812 "y.tab.c"
     break;
 
   case 5:
-#line 326 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 321 "1905025_Syntax_and_Semantic_Analyzer.y"
                        {
-            // write_to_log("unit", "var_declaration");
-            //write_to_console("unit", "var_declaration");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unit");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
-
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code;
         
         }
-#line 1833 "y.tab.c"
+#line 1826 "y.tab.c"
     break;
 
   case 6:
-#line 340 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 330 "1905025_Syntax_and_Semantic_Analyzer.y"
                            {
-            // write_to_log("unit", "func_declaration");
-            //write_to_console("unit", "func_declaration");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unit");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code;
         }
-#line 1851 "y.tab.c"
+#line 1839 "y.tab.c"
     break;
 
   case 7:
-#line 353 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 338 "1905025_Syntax_and_Semantic_Analyzer.y"
                           {
-            // write_to_log("unit", "func_definition");
-            //write_to_console("unit", "func_definition");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unit");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
-
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code;
     }
-#line 1869 "y.tab.c"
+#line 1852 "y.tab.c"
     break;
 
   case 8:
-#line 369 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                            {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN parameter_list RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN parameter_list RPAREN SEMICOLON" );  
-
-             
+#line 349 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                            {            
             (yyval.symbolInfo) = new SymbolInfo("", "func_declaration");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) }));
 
@@ -1892,15 +1871,12 @@ yyreduce:
                 write_error("Redefinition of '"+ (yyvsp[-4].symbolInfo)->get_name()+"'");
             }  
     }
-#line 1896 "y.tab.c"
+#line 1875 "y.tab.c"
     break;
 
   case 9:
-#line 391 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 367 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                     {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN RPAREN SEMICOLON" );  
-
             (yyval.symbolInfo) = new SymbolInfo("", "func_declaration");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
 
@@ -1917,14 +1893,12 @@ yyreduce:
             }
 
     }
-#line 1921 "y.tab.c"
+#line 1897 "y.tab.c"
     break;
 
   case 10:
-#line 412 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 385 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                           {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN error RPAREN SEMICOLON" );
             error_file<<"Line# "<<total_line_count<<": Syntax error at parameter list of function declaration\n";
         
             SymbolInfo* error_file = new SymbolInfo("error", "func_declaration", total_line_count);
@@ -1939,121 +1913,68 @@ yyreduce:
             (yyval.symbolInfo)->add_child({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), error_file, (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) });
 
         }
-#line 1943 "y.tab.c"
+#line 1917 "y.tab.c"
     break;
 
   case 11:
-#line 433 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 404 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                                  {insert_function((yyvsp[-3].symbolInfo),(yyvsp[-4].symbolInfo));}
-#line 1949 "y.tab.c"
+#line 1923 "y.tab.c"
     break;
 
   case 12:
-#line 433 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                                                              {  
-            //write_to_console("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-            // symboltable->print_all_scopes();
-            // write_to_log("func_definition", "type_specifier ID LPAREN parameter_list RPAREN compound_statement");
-
-            (yyval.symbolInfo) = new SymbolInfo("", "func_definition");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->add_child({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)});
-            
-            (yyval.symbolInfo)->code += "\n\n"+(yyvsp[-5].symbolInfo)->get_name()+" PROC\n";
-            
-            
-            // if inserted function is 'main' then make the boolean value true
-            if((yyvsp[-5].symbolInfo)->get_name() == "main"){
-                has_main = true;
-                
-                // mov ax, @data
-                // mov ds, ax
-                (yyval.symbolInfo)->code += "\tMOV AX, @DATA\n";
-                (yyval.symbolInfo)->code += "\tMOV DS, AX\n";
-                (yyval.symbolInfo)->code += (yyvsp[-3].symbolInfo)->code +"\n" + (yyvsp[0].symbolInfo)->code + "\n";
-                (yyval.symbolInfo)->code += "\t_exitLabel:\n";
-                // mov ah, 4ch
-                // int 21h
-                (yyval.symbolInfo)->code += "\t\tMOV AH, 4CH\n";
-                (yyval.symbolInfo)->code += "\t\tINT 21H\n";
-
-            }else{
-                (yyval.symbolInfo)->code += "\tPUSH BP\n\tMOV BP, SP\n";
-                (yyval.symbolInfo)->code += (yyvsp[-3].symbolInfo)->code +"\n" + (yyvsp[0].symbolInfo)->code + "\n";
-                (yyval.symbolInfo)->code += "\t_exitLabel:\n";
-                (yyval.symbolInfo)->code += "\t\tADD SP, "+to_string(-(yyvsp[0].symbolInfo)->stack_pos)+"\n"; 
-                (yyval.symbolInfo)->code += "\t\tPOP BP\n";
-                // RET
-                (yyval.symbolInfo)->code += "\t\tRET\n";
-            }
-
-            (yyval.symbolInfo)->code += "\n" + (yyvsp[-5].symbolInfo)->get_name() +" ENDP\n"; 
-
-            (yyval.symbolInfo)->set_start_line((yyvsp[-6].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-        }
-#line 1996 "y.tab.c"
+#line 404 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                                           {start_procedure((yyvsp[-4].symbolInfo)->get_name(), (yyvsp[-5].symbolInfo)->get_name());}
+#line 1929 "y.tab.c"
     break;
 
   case 13:
-#line 476 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                          {insert_function((yyvsp[-2].symbolInfo),(yyvsp[-3].symbolInfo)); }
-#line 2002 "y.tab.c"
+#line 404 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                                                                                                                 {  
+            (yyval.symbolInfo) = new SymbolInfo("", "func_definition");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-7].symbolInfo), (yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[0].symbolInfo)}));
+            
+            end_procedure((yyvsp[-6].symbolInfo), total_stack_size_used_in_function);
+            has_return = false;
+
+            (yyval.symbolInfo)->add_child({(yyvsp[-7].symbolInfo), (yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[0].symbolInfo)});
+            (yyval.symbolInfo)->set_start_line((yyvsp[-7].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+        }
+#line 1945 "y.tab.c"
     break;
 
   case 14:
-#line 476 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                                       {   
-            // write_to_log("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
-            //write_to_console("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
-
-            (yyval.symbolInfo) = new SymbolInfo("", "func_definition");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->add_child({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)});
-
-
-            (yyval.symbolInfo)->code += "\n\n"+(yyvsp[-4].symbolInfo)->get_name()+" PROC\n";
-            
-            // if inserted function is 'main' then make the boolean value true
-            if((yyvsp[-4].symbolInfo)->get_name() == "main"){
-                has_main = true;
-                
-                // mov ax, @data
-                // mov ds, ax
-                (yyval.symbolInfo)->code += "\tMOV AX, @DATA\n";
-                (yyval.symbolInfo)->code += "\tMOV DS, AX\n";
-                (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code + "\n";
-                (yyval.symbolInfo)->code += "\t_exitLabel:\n";
-                // mov ah, 4ch
-                // int 21h
-                (yyval.symbolInfo)->code += "\t\tMOV AH, 4CH\n";
-                (yyval.symbolInfo)->code += "\t\tINT 21H\n";
-
-            }else{
-                (yyval.symbolInfo)->code += "\tPUSH BP\n\tMOV BP, SP\n";
-                (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code + "\n";
-                (yyval.symbolInfo)->code += "\t_exitLabel:\n";
-                (yyval.symbolInfo)->code += "\t\tADD SP, "+to_string(-(yyvsp[0].symbolInfo)->stack_pos)+"\n"; 
-                (yyval.symbolInfo)->code += "\t\tPOP BP\n";
-                // RET
-                (yyval.symbolInfo)->code += "\t\tRET\n";
-            }
-
-            (yyval.symbolInfo)->code += "\n" + (yyvsp[-4].symbolInfo)->get_name() +" ENDP\n"; 
-
-
-            (yyval.symbolInfo)->set_start_line((yyvsp[-5].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-    }
-#line 2049 "y.tab.c"
+#line 416 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                          {insert_function((yyvsp[-2].symbolInfo),(yyvsp[-3].symbolInfo)); }
+#line 1951 "y.tab.c"
     break;
 
   case 15:
-#line 519 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                   {    
-            //write_to_console("func_definition", "type_specifier ID LPAREN error RPAREN compound_statement");
-            // write_error("Syntax error at parameter list of function definition");
+#line 416 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                     {start_procedure((yyvsp[-3].symbolInfo)->get_name(), (yyvsp[-4].symbolInfo)->get_name());}
+#line 1957 "y.tab.c"
+    break;
 
+  case 16:
+#line 416 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                                                                                          {   
+            (yyval.symbolInfo) = new SymbolInfo("", "func_definition");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[0].symbolInfo)}));
+
+            end_procedure((yyvsp[-5].symbolInfo), total_stack_size_used_in_function);
+            has_return = false;
+
+            (yyval.symbolInfo)->add_child({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[0].symbolInfo)}); 
+            (yyval.symbolInfo)->set_start_line((yyvsp[-6].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+    }
+#line 1973 "y.tab.c"
+    break;
+
+  case 17:
+#line 428 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                   {    
             SymbolInfo* error_info = new SymbolInfo("error","parameter_list",(yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo) = new SymbolInfo("", "func_definition");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
@@ -2061,15 +1982,12 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo),error_info, (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)});
         }
-#line 2065 "y.tab.c"
+#line 1986 "y.tab.c"
     break;
 
-  case 16:
-#line 533 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 18:
+#line 439 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                         {
-            // write_to_log("parameter_list ", "parameter_list COMMA type_specifier ID");
-            //write_to_console("parameter_list", "parameter_list COMMA type_specifier ID");
-
             (yyval.symbolInfo) = new SymbolInfo("", "parameter_list");
             (yyval.symbolInfo)->set_parameters((yyvsp[-3].symbolInfo)->get_parameters());
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
@@ -2083,15 +2001,12 @@ yyreduce:
             symbolInfoList->set_parameters((yyval.symbolInfo)->get_parameters());  
             isVoid((yyvsp[-1].symbolInfo));         // if error write the error info
         }
-#line 2087 "y.tab.c"
+#line 2005 "y.tab.c"
     break;
 
-  case 17:
-#line 550 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 19:
+#line 453 "1905025_Syntax_and_Semantic_Analyzer.y"
                                               {
-            // write_to_log("parameter_list ", "parameter_list COMMA type_specifier");
-            //write_to_console("parameter_list", "parameter_list COMMA type_specifier");
-
             (yyval.symbolInfo) = new SymbolInfo("", "parameter_list");
             (yyval.symbolInfo)->set_parameters((yyvsp[-2].symbolInfo)->get_parameters());
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
@@ -2107,15 +2022,12 @@ yyreduce:
             symbolInfoList->set_parameters((yyval.symbolInfo)->get_parameters());
             isVoid((yyvsp[0].symbolInfo));
         }
-#line 2111 "y.tab.c"
+#line 2026 "y.tab.c"
     break;
 
-  case 18:
-#line 569 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 20:
+#line 469 "1905025_Syntax_and_Semantic_Analyzer.y"
                             {
-            // write_to_log("parameter_list ", "type_specifier ID");
-            //write_to_console("parameter_list", "type_specifier ID");
-
             (yyval.symbolInfo) = new SymbolInfo("", "parameter_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyvsp[0].symbolInfo)->set_specifier((yyvsp[-1].symbolInfo)->get_specifier());
@@ -2128,15 +2040,12 @@ yyreduce:
             isVoid((yyvsp[-1].symbolInfo));
             symbolInfoList->set_parameters((yyval.symbolInfo)->get_parameters());
         }
-#line 2132 "y.tab.c"
+#line 2044 "y.tab.c"
     break;
 
-  case 19:
-#line 585 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 21:
+#line 482 "1905025_Syntax_and_Semantic_Analyzer.y"
                          {
-            // write_to_log("parameter_list ", "type_specifier");
-            //write_to_console("parameter_list", "type_specifier");
-
             (yyval.symbolInfo) = new SymbolInfo("", "parameter_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             SymbolInfo* noNameInfo = new SymbolInfo("", "ID");
@@ -2150,15 +2059,12 @@ yyreduce:
             symbolInfoList->set_parameters((yyval.symbolInfo)->get_parameters());
             isVoid((yyvsp[0].symbolInfo));
     }
-#line 2154 "y.tab.c"
+#line 2063 "y.tab.c"
     break;
 
-  case 20:
-#line 603 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 22:
+#line 497 "1905025_Syntax_and_Semantic_Analyzer.y"
                                {
-            // write_to_log("parameter_list ", "type_specifier ID");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
-            //write_to_console("parameter_list", "type_specifier error");
             write_error("Syntax error at parameter list of function definition");
 
             (yyval.symbolInfo) = new SymbolInfo("", "parameter_list");
@@ -2168,125 +2074,115 @@ yyreduce:
             (yyval.symbolInfo)->set_leaf();
    
         }
-#line 2172 "y.tab.c"
+#line 2078 "y.tab.c"
     break;
 
-  case 21:
-#line 618 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 23:
+#line 509 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                            {
-            // write_to_log("compound_statement", "LCURL statements RCURL");
-            //write_to_console("compound_statement", "LCURL statements RCURL");
-
             (yyval.symbolInfo) = new SymbolInfo("","compound_statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
 
             (yyval.symbolInfo)->set_start_line((yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
-
-            // symboltable->print_all_scopes(log_file);
-            symboltable->exit_scope(log_file);
+            
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+            
+            symboltable->exit_scope();
             
         }
-#line 2192 "y.tab.c"
+#line 2096 "y.tab.c"
     break;
 
-  case 22:
-#line 633 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 24:
+#line 522 "1905025_Syntax_and_Semantic_Analyzer.y"
                                      {
-            // write_to_log("compound_statement", "LCURL RCURL");
-            //write_to_console("compound_statement", "LCURL RCURL");
-
             (yyval.symbolInfo) = new SymbolInfo("","compound_statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
+
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+
+            symboltable->exit_scope();
 
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[0].symbolInfo)});
             
-            // symboltable->print_all_scopes(log_file);
-            symboltable->exit_scope(log_file);
         }
-#line 2211 "y.tab.c"
+#line 2114 "y.tab.c"
     break;
 
-  case 23:
-#line 649 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 25:
+#line 537 "1905025_Syntax_and_Semantic_Analyzer.y"
                 {
             symboltable->enter_scope();
-            // for any void type parameter set type = "error" 
+            int temp_stack_offset = 0;
+
+            for(auto x: symbolInfoList->get_parameters()){
+                if(x->is_array()){
+                    temp_stack_offset += (x->get_size()*2);
+                }
+                else{
+                    temp_stack_offset += 2;
+                }
+            }
+
+            // for any void type parameter set type = "error"
             for(auto x : symbolInfoList->get_parameters()){
                 if(x->get_name() == "") continue;
                 if(isVoid(x)){
+                    write_error("Void cannot be used in parameter list");
                     x->set_specifier("error");
-                }
-
-                bool flag = symboltable->insert(x);
-                if(!flag){
-                    write_error("Redefinition of parameter '"+ x->get_name()+"'");
-                    // //write_to_console(374, "parameter_list error");
                     break;
                 }
 
+                x->set_stack_offset(temp_stack_offset);
+                x->set_param();
+                bool flag = symboltable->insert(x);
+
+                if(!flag){
+                    write_error("Redefinition of parameter '"+ x->get_name()+"'");
+                    break;
+                }
+
+                if(x->get_size() == 0){
+                    temp_stack_offset -= 2;
+                } else{
+                    temp_stack_offset -= 2*x->get_size();
+                }  
             }
+
             symbolInfoList->set_parameters({}); // after entering into scope table set the parameter list  = 0
+
     }
-#line 2235 "y.tab.c"
+#line 2160 "y.tab.c"
     break;
 
-  case 24:
-#line 671 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 26:
+#line 580 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                             {
-            // write_to_log("var_declaration", "type_specifier declaration_list SEMICOLON");
-            //write_to_console("var_declaration", "type_specifier declaration_list SEMICOLON");
 
             (yyval.symbolInfo) = new SymbolInfo("","var_declaration");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)})); 
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) });
+            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)});
 
-            if((yyvsp[-2].symbolInfo)->get_specifier() == "VOID"){
-                for(auto x : (yyvsp[-1].symbolInfo)->get_declarations())
-                    write_error("Variable or field '" + x->get_name() + "' declared void");
-            }else {
-                for(auto x : (yyvsp[-1].symbolInfo)->get_declarations()){
-                    x->set_specifier((yyvsp[-2].symbolInfo)->get_specifier());
-                    bool flag = symboltable->insert(x);
-                    if(! flag){
-                        SymbolInfo *prev = symboltable->look_up(x->get_name());
-                        if(prev->get_specifier() != x->get_specifier()){
-                            write_error("Conflicting types for'" + x->get_name() + "'");
-                        }else{
-                            write_error("Redeclaration of'"+ x->get_name()+"'");
-                        }
-                    }
-                    else if(symboltable->get_current_scope_id() == 1){
-                        /* If the variable is a global one then its scope table id = 1  and 
-                            for this we set it's stack position = 0 and 
-                            push the variable to the 'global_vars' vector 
-                         */
-                        x->stack_pos = 0;
-                        global_vars.push_back(x->get_name());
-                    }
-                    else{
-                        if(x->is_array()){
-                           (yyval.symbolInfo)->code += "\tSUB SP, "+to_string(2*x->get_size())+"\n"; 
-                        }
-                        else{
-                            (yyval.symbolInfo)->code += "\tSUB SP, 2\n";
-                        }
-                    }
-                }
+          
+            for(auto x : (yyvsp[-1].symbolInfo)->get_declarations()){
+                x->set_specifier((yyvsp[-2].symbolInfo)->get_specifier());
+                variable_operation(x);
             }
 
-            // symboltable->print_all_scopes();
-        }
-#line 2286 "y.tab.c"
+            write_in_code_segment("\n");
+
+    }
+#line 2182 "y.tab.c"
     break;
 
-  case 25:
-#line 717 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 27:
+#line 597 "1905025_Syntax_and_Semantic_Analyzer.y"
                                          {
             
             //write_to_console("var_declaration", "type_specifier error SEMICOLON");
@@ -2308,49 +2204,13 @@ yyreduce:
                 }
 
             }
-            // symboltable->print_all_scopes();
         }
-#line 2314 "y.tab.c"
-    break;
-
-  case 26:
-#line 743 "1905025_Syntax_and_Semantic_Analyzer.y"
-                     {
-            //write_to_console("type_specifier", "INT");
-            // write_to_log("type_specifier", "INT");
-            
-            (yyval.symbolInfo) = new SymbolInfo("", "type_specifier");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
-            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-        }
-#line 2330 "y.tab.c"
-    break;
-
-  case 27:
-#line 754 "1905025_Syntax_and_Semantic_Analyzer.y"
-                {
-            // log_file<<"type_specifier : "<<"FLOAT\n";
-            //write_to_console("type_specifier", "FLOAT");
-
-            (yyval.symbolInfo) = new SymbolInfo("", "type_specifier");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
-            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-        }
-#line 2346 "y.tab.c"
+#line 2209 "y.tab.c"
     break;
 
   case 28:
-#line 765 "1905025_Syntax_and_Semantic_Analyzer.y"
-               {
-            // log_file<<"type_specifier : "<<"VOID\n";
-            //write_to_console("type_specifier", "VOID");
-
+#line 622 "1905025_Syntax_and_Semantic_Analyzer.y"
+                     {
             (yyval.symbolInfo) = new SymbolInfo("", "type_specifier");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
@@ -2358,15 +2218,38 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
         }
-#line 2362 "y.tab.c"
+#line 2222 "y.tab.c"
     break;
 
   case 29:
-#line 779 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                            {
-            // write_to_log("declaration_list","declaration_list COMMA ID");
-            //write_to_console("declaration_list","declaration_list COMMA ID");
+#line 630 "1905025_Syntax_and_Semantic_Analyzer.y"
+                {
+            (yyval.symbolInfo) = new SymbolInfo("", "type_specifier");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
+            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
+        }
+#line 2235 "y.tab.c"
+    break;
 
+  case 30:
+#line 638 "1905025_Syntax_and_Semantic_Analyzer.y"
+               {
+            (yyval.symbolInfo) = new SymbolInfo("", "type_specifier");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
+            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
+        }
+#line 2248 "y.tab.c"
+    break;
+
+  case 31:
+#line 649 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                            {
             (yyval.symbolInfo) = new SymbolInfo("", "declaration_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_declarations((yyvsp[-2].symbolInfo)->get_declarations());
@@ -2375,19 +2258,18 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[-1].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) });
 
+            
+
             // add the declarations to the symbolInfoList so that we can insert them to the symbol table if any error found
             symbolInfoList->set_declarations((yyvsp[-2].symbolInfo)->get_declarations());
             symbolInfoList->add_declaration((yyvsp[0].symbolInfo));
     }
-#line 2383 "y.tab.c"
+#line 2268 "y.tab.c"
     break;
 
-  case 30:
-#line 795 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 32:
+#line 664 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                               {
-            // write_to_log("declaration_list", "declaration_list COMMA ID LSQUARE CONST_INT RSQUARE");
-            //write_to_console("declaration_list","declaration_list COMMA ID");
-
             (yyval.symbolInfo) = new SymbolInfo("", "declaration_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_declarations((yyvsp[-5].symbolInfo)->get_declarations());
@@ -2400,19 +2282,16 @@ yyreduce:
             symbolInfoList->set_declarations((yyvsp[-5].symbolInfo)->get_declarations());
             symbolInfoList->add_declaration((yyvsp[-3].symbolInfo));
 
-            string s = (yyvsp[-1].symbolInfo)->get_name();
-            int array_size = stoi(s);
-            (yyvsp[-3].symbolInfo)->set_size(array_size);
+            // set the size of the array
+            (yyvsp[-3].symbolInfo)->set_size(stoi((yyvsp[-1].symbolInfo)->get_name()));
 
         }
-#line 2409 "y.tab.c"
+#line 2290 "y.tab.c"
     break;
 
-  case 31:
-#line 816 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 33:
+#line 681 "1905025_Syntax_and_Semantic_Analyzer.y"
              {
-            // write_to_log("declaration_list", "ID");
-            //write_to_console("declaration_list", "ID");
 
             (yyval.symbolInfo) = new SymbolInfo("", "declaration_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
@@ -2423,39 +2302,30 @@ yyreduce:
 
             symbolInfoList->add_declaration((yyvsp[0].symbolInfo));
         }
-#line 2427 "y.tab.c"
+#line 2306 "y.tab.c"
     break;
 
-  case 32:
-#line 829 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                       {
-            // write_to_log("declaration_list", "ID LSQUARE CONST_INT RSQUARE");
-            //write_to_console("declaration_list", "ID LSQUARE CONST_INT RSQUARE");
-            
+  case 34:
+#line 692 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                       { 
             (yyval.symbolInfo) = new SymbolInfo("", "declaration_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyvsp[-3].symbolInfo)->set_array();    // since it is a production for detecting array we shall set the array flag of symbolinfo on
             (yyval.symbolInfo)->add_declaration((yyvsp[-3].symbolInfo));
-            // cout<<total_line_count<<" "<<$1->get_name()<<$1->is_array()<<endl;
             symbolInfoList->add_declaration((yyvsp[-3].symbolInfo));
             (yyval.symbolInfo)->set_start_line((yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) });
 
-            string s = (yyvsp[-1].symbolInfo)->get_name();
-            int array_size = stoi(s);
-            (yyvsp[-3].symbolInfo)->set_size(array_size);
+            (yyvsp[-3].symbolInfo)->set_size(stoi((yyvsp[-1].symbolInfo)->get_name()));
 
         }
-#line 2451 "y.tab.c"
+#line 2324 "y.tab.c"
     break;
 
-  case 33:
-#line 848 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 35:
+#line 705 "1905025_Syntax_and_Semantic_Analyzer.y"
                    {
-            // write_to_log("declaration_list", "ID");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
-
             (yyval.symbolInfo) = new SymbolInfo("", "declaration_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo)}));
             symbolInfoList->add_declaration((yyvsp[-1].symbolInfo));
@@ -2463,30 +2333,26 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[-1].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo)});
         }
-#line 2467 "y.tab.c"
+#line 2337 "y.tab.c"
     break;
 
-  case 34:
-#line 862 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 36:
+#line 716 "1905025_Syntax_and_Semantic_Analyzer.y"
                        {
-            // write_to_log("statements", "statement");
-            //write_to_console("statements", "statement");
 
             (yyval.symbolInfo) = new SymbolInfo("","statements");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             symbolInfoList->set_declarations({});
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
     }
-#line 2483 "y.tab.c"
+#line 2351 "y.tab.c"
     break;
 
-  case 35:
-#line 873 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 37:
+#line 725 "1905025_Syntax_and_Semantic_Analyzer.y"
                                {
-            // write_to_log("statements", "statements statement");
-            //write_to_console("statements", "statements statement");
 
             (yyval.symbolInfo) = new SymbolInfo("","statements");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
@@ -2495,188 +2361,335 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo) });
     }
-#line 2499 "y.tab.c"
-    break;
-
-  case 36:
-#line 887 "1905025_Syntax_and_Semantic_Analyzer.y"
-                            {
-            // write_to_log("statement", "var_declaration");
-            //write_to_console("statement", "var_declaration");
-
-            (yyval.symbolInfo) = new SymbolInfo("","statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
-    }
-#line 2514 "y.tab.c"
-    break;
-
-  case 37:
-#line 897 "1905025_Syntax_and_Semantic_Analyzer.y"
-                               {
-            // write_to_log("statement", "expression_statement");
-            //write_to_console("statement", "expression_statement");
-
-            (yyval.symbolInfo) = new SymbolInfo("","statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
-    }
-#line 2529 "y.tab.c"
+#line 2365 "y.tab.c"
     break;
 
   case 38:
-#line 907 "1905025_Syntax_and_Semantic_Analyzer.y"
-                             {
-            // write_to_log("statement", "compound_statement");
-            //write_to_console("statement", "compound_statement");
+#line 738 "1905025_Syntax_and_Semantic_Analyzer.y"
+          {
+    string endLabel = new_label();
+    string elseLabel = new_label();
+    (yyval.symbolInfo) = new SymbolInfo(elseLabel, "LABEL");
 
+
+    string code = "\t\tPOP AX\n";
+    code += "\t\tCMP AX, 0\n";
+    code += "\t\tJNE "+endLabel+"\n";
+    code += "\t\tJMP "+elseLabel +"\n";
+    code += "\t"+ endLabel+":";
+
+    write_in_code_segment(code);
+
+}
+#line 2385 "y.tab.c"
+    break;
+
+  case 39:
+#line 754 "1905025_Syntax_and_Semantic_Analyzer.y"
+          {
+    string condition_check = new_label();
+    string code = "\t" + condition_check + ":\t\t\t\t; label for checking boolean expression";
+    write_in_code_segment(code);
+    (yyval.symbolInfo) = new SymbolInfo(condition_check, "LABEL"); 
+}
+#line 2396 "y.tab.c"
+    break;
+
+  case 40:
+#line 761 "1905025_Syntax_and_Semantic_Analyzer.y"
+               {
+    string b_false = new_label();
+    string b_true = new_label();
+    string statement_next = new_label();
+
+    string code = "\t\tPOP AX\n";
+    code += "\t\tCMP AX, 0\n";
+    code += "\t\tJNE " + b_true + "\t\t; move to b_true\n";
+    code += "\t\tJMP " + b_false + "\t\t; move to b_false\n";  // if false go to the end of the loop
+    code += "\t\t" + statement_next + ":\t\t\t\t; label for incrementing or decrementing";
+    write_in_code_segment(code);
+
+    // b_true label will be printed before the statement
+    // b false will be printed after the statement execution
+    (yyval.symbolInfo) = new SymbolInfo(b_false, b_true);
+    // this is used just as a temporary
+    // after the boolean check  go to the statement
+    // then after statement comme back to increment or decrement  
+    // i++ or i--
+    (yyval.symbolInfo)->set_specifier(statement_next);  
+}
+#line 2422 "y.tab.c"
+    break;
+
+  case 41:
+#line 783 "1905025_Syntax_and_Semantic_Analyzer.y"
+                            {
             (yyval.symbolInfo) = new SymbolInfo("","statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
     }
-#line 2544 "y.tab.c"
-    break;
-
-  case 39:
-#line 917 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                          {isVoid((yyvsp[0].symbolInfo));}
-#line 2550 "y.tab.c"
-    break;
-
-  case 40:
-#line 917 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                             {isVoid((yyvsp[0].symbolInfo));}
-#line 2556 "y.tab.c"
-    break;
-
-  case 41:
-#line 917 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                                                      {isVoid((yyvsp[0].symbolInfo));}
-#line 2562 "y.tab.c"
+#line 2434 "y.tab.c"
     break;
 
   case 42:
-#line 917 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                                                                                     {
-            /* check if the expression statement and the expression has void type specifiers */
-
-            // write_to_log("statement", "FOR LPAREN expression_statement expression_statement expression RPAREN statement");
-            //write_to_console("statement", "FOR LPAREN expression_statement expression statement_expression RPAREN statement");
-            
+#line 790 "1905025_Syntax_and_Semantic_Analyzer.y"
+                               {
             (yyval.symbolInfo) = new SymbolInfo("","statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-9].symbolInfo),(yyvsp[-8].symbolInfo),(yyvsp[-7].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[-9].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-9].symbolInfo),(yyvsp[-8].symbolInfo),(yyvsp[-7].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
     }
-#line 2579 "y.tab.c"
+#line 2446 "y.tab.c"
     break;
 
   case 43:
-#line 929 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                           {
-            /* conflict */
-            // write_to_log("statement", "IF LPAREN expression RPAREN statement");
-            //write_to_console("statement", "IF LPAREN expression RPAREN statement");
-
-            (yyval.symbolInfo) = new SymbolInfo("", "statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[-4].symbolInfo)->get_start_line());
+#line 797 "1905025_Syntax_and_Semantic_Analyzer.y"
+                             {
+            (yyval.symbolInfo) = new SymbolInfo("","statement");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)});
-        }
-#line 2595 "y.tab.c"
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)  });
+    }
+#line 2458 "y.tab.c"
     break;
 
   case 44:
-#line 941 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                          {
-            /* conflict */
-            // write_to_log("statement", "IF LPAREN expression RPAREN statement ELSE statement");
-            //write_to_console("statement", "IF LPAREN expression RPAREN statement ELSE statement");
-
-            (yyval.symbolInfo) = new SymbolInfo("", "statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[-6].symbolInfo)->get_start_line());
-            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)});
-        }
-#line 2611 "y.tab.c"
+#line 804 "1905025_Syntax_and_Semantic_Analyzer.y"
+              {write_in_code_segment("\t\t;INTO THE FOR LOOP\n");}
+#line 2464 "y.tab.c"
     break;
 
   case 45:
-#line 952 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                  {isVoid((yyvsp[0].symbolInfo));}
-#line 2617 "y.tab.c"
+#line 804 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                                                                                                      {
+            string condition_check = (yyvsp[-3].symbolInfo)->get_name();
+            string b_true = (yyvsp[-1].symbolInfo)->get_type();
+            string code ="\t\tJMP " + condition_check + "\t\t; move to the condition check again\n";
+            code += "\t"+ b_true + ":\t\t\t\t label for b_true"; 
+            write_in_code_segment(code);
+
+        }
+#line 2477 "y.tab.c"
     break;
 
   case 46:
-#line 952 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                                 {
-            // write_to_log("statement", "WHILE LPAREN expression RPAREN statement");
-            //write_to_console("statement", "WHILE LPAREN expression RPAREN statement");
-            
+#line 811 "1905025_Syntax_and_Semantic_Analyzer.y"
+                           {
+            /* check if the expression statement and the expression has void type specifiers */            
             (yyval.symbolInfo) = new SymbolInfo("","statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo),(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[-5].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-10].symbolInfo),(yyvsp[-8].symbolInfo),(yyvsp[-7].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-10].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-5].symbolInfo),(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+            (yyval.symbolInfo)->add_child({(yyvsp[-10].symbolInfo),(yyvsp[-8].symbolInfo),(yyvsp[-7].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
 
-        }
-#line 2633 "y.tab.c"
+            
+            string statement_next = (yyvsp[-4].symbolInfo)->get_specifier();
+            string b_false = (yyvsp[-4].symbolInfo)->get_name();
+
+            // go to i++ or i--
+            string code = "\t\tJMP "+ statement_next + "\t\t\t\t;go to incrementing or decrementing\n";
+            // print the next label
+            code += "\t\t; exiting the for loop\n";
+            code += "\t"+ b_false + ":\t\t\t\t label for statements.next";
+
+
+            write_in_code_segment(code);
+
+            delete (yyvsp[-6].symbolInfo);
+            delete (yyvsp[-4].symbolInfo);
+    }
+#line 2506 "y.tab.c"
     break;
 
   case 47:
-#line 963 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                             {
-            // write_to_log("statement", "PRINTLN LPAREN ID RPAREN SEMICOLON");
-            //write_to_console("statement", "PRINTLN LPAREN ID RPAREN SEMICOLON");
-            
-            (yyval.symbolInfo) = new SymbolInfo("","statement");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
-
-            if( !symboltable->look_up((yyvsp[-2].symbolInfo)->get_name())){
-                write_error("Undeclared variable '"+ (yyvsp[-2].symbolInfo)->get_name()+"'");
-            }
-            (yyval.symbolInfo)->set_start_line((yyvsp[-4].symbolInfo)->get_start_line());
+#line 835 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                    {
+            /* conflict */
+            (yyval.symbolInfo) = new SymbolInfo("", "statement");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-5].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+            (yyval.symbolInfo)->add_child({(yyvsp[-5].symbolInfo), (yyvsp[-4].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)});
+
+            // statement executed now print the new label that was supposed to print
+            // if the expression was false
+            string code = "\t"+ (yyvsp[-1].symbolInfo)->get_name()+":";
+
+            write_in_code_segment(code);
         }
-#line 2652 "y.tab.c"
+#line 2525 "y.tab.c"
     break;
 
   case 48:
-#line 977 "1905025_Syntax_and_Semantic_Analyzer.y"
-                            {isVoid((yyvsp[0].symbolInfo));}
-#line 2658 "y.tab.c"
+#line 850 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                              {
+            string endLabel = new_label();
+            string code = "\t\tJMP "+ endLabel + "\n";  // if statement is true so we directly move to the endlabel
+            code += "\t" + (yyvsp[-2].symbolInfo)->get_name() + ":";//  if statement is false so we execute the else
+            write_in_code_segment(code);
+            (yyval.symbolInfo) = new SymbolInfo(endLabel, "LABEL");
+
+        }
+#line 2538 "y.tab.c"
     break;
 
   case 49:
-#line 977 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                                    {
-            // write_to_log("statement", "RETURN expression SEMICOLON");
-            //write_to_console("statement", "RETURN expression SEMICOLON");
+#line 857 "1905025_Syntax_and_Semantic_Analyzer.y"
+                               {
+            /* conflict */
             
+            (yyval.symbolInfo) = new SymbolInfo("", "statement");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-8].symbolInfo), (yyvsp[-7].symbolInfo), (yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-8].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+            (yyval.symbolInfo)->add_child({(yyvsp[-8].symbolInfo), (yyvsp[-7].symbolInfo), (yyvsp[-6].symbolInfo), (yyvsp[-5].symbolInfo), (yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)});
+            
+            // all the statements executed
+            // so we print the endLabel
+            string code = "\t"+(yyvsp[-1].symbolInfo)->get_name()+":";
+            write_in_code_segment(code);
+
+        }
+#line 2558 "y.tab.c"
+    break;
+
+  case 50:
+#line 872 "1905025_Syntax_and_Semantic_Analyzer.y"
+                       {
+            string code = "";
+            string while_label = new_label();
+            code += "\t" + while_label + ":";
+            write_in_code_segment(code);
+            (yyval.symbolInfo) = new SymbolInfo(while_label, "LABEL");
+
+        }
+#line 2571 "y.tab.c"
+    break;
+
+  case 51:
+#line 879 "1905025_Syntax_and_Semantic_Analyzer.y"
+                     {
+            string end_label = new_label();
+            string bypass_label = new_label();
+
+            string code = "\t\tPOP AX\n";
+            if((yyvsp[0].symbolInfo)->get_name() == "variableINCOP"){
+                code += "\t\tDEC AX\n";
+                cout<<"dec ax"<<endl; 
+            }else if((yyvsp[0].symbolInfo)->get_name() == "variableDECOP"){
+                code += "\t\tINC AX\n";
+                cout<<"inc ax"<<endl;
+            }
+            code += "\t\tCMP AX, 0\n";
+            code += "\t\tJNE " + bypass_label + "\n";
+            code += "\t\tJMP " + end_label + "\n";  // if false go to the end of the loop
+            code += "\t" + bypass_label + ":";
+            write_in_code_segment(code);
+
+            (yyval.symbolInfo) = new SymbolInfo(end_label, "LABEL");
+            
+        }
+#line 2597 "y.tab.c"
+    break;
+
+  case 52:
+#line 899 "1905025_Syntax_and_Semantic_Analyzer.y"
+                           {
+            (yyval.symbolInfo) = new SymbolInfo("","statement");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-6].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-6].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+            (yyval.symbolInfo)->add_child({(yyvsp[-6].symbolInfo),(yyvsp[-5].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+
+            string for_label = (yyvsp[-4].symbolInfo)->get_name();
+            string end_label = (yyvsp[-2].symbolInfo)->get_name();
+
+            write_in_code_segment("\t\tJMP " + for_label + "\n");
+
+            write_in_code_segment("\t" + end_label + ":");
+
+
+            delete (yyvsp[-4].symbolInfo);
+            delete (yyvsp[-2].symbolInfo);
+
+        }
+#line 2621 "y.tab.c"
+    break;
+
+  case 53:
+#line 918 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                             {
+            
+            (yyval.symbolInfo) = new SymbolInfo("","statement");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-4].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
+            (yyval.symbolInfo)->add_child({(yyvsp[-4].symbolInfo),(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+
+            SymbolInfo* prev = symboltable->look_up((yyvsp[-2].symbolInfo)->get_name());
+            
+            if(!prev){
+                write_error("Undeclared variable '"+ (yyvsp[-2].symbolInfo)->get_name()+"'");
+            }else{
+                int stack_offset = prev->get_stack_offset();
+                string code = "";
+                if(stack_offset == -1){
+                    code += "\t\tMOV AX, "+(yyvsp[-2].symbolInfo)->get_name()+"\t\t; ax =  "+(yyvsp[-2].symbolInfo)->get_name()+"\n";
+                }else if(stack_offset == 0){
+                    code += "\t\tMOV AX, [BP]\t\t; ax =  "+(yyvsp[-2].symbolInfo)->get_name()+"\n";
+                }else{
+                    code += "\t\tMOV AX, [BP -" + to_string(stack_offset) + "]\t\t; ax =  "+(yyvsp[-2].symbolInfo)->get_name()+" \n";
+                }
+                
+                code += "\t\tCALL PRINT_NUMBER\n";
+                code += "\t\tCALL NEWLINE\n\n"; 
+                write_in_code_segment(code);
+            }
+
+            
+              
+        }
+#line 2657 "y.tab.c"
+    break;
+
+  case 54:
+#line 949 "1905025_Syntax_and_Semantic_Analyzer.y"
+                            {isVoid((yyvsp[0].symbolInfo));}
+#line 2663 "y.tab.c"
+    break;
+
+  case 55:
+#line 949 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                    {            
             (yyval.symbolInfo) = new SymbolInfo("","statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo) });
+
+            total_stack_size_used_in_function = symboltable->total_variables_in_current_scope();
+
+            if(function_name != "main"){
+                string code = "\t\tPOP AX\n";
+                if(total_stack_size_used_in_function> 0)
+                    code += "\t\tADD SP, "+ to_string(2*total_stack_size_used_in_function)+ "\t;freeing the stack of the local variables\n";
+                code += "\t\tMOV SP, BP\n";
+                code += "\t\tPOP BP\n";  
+                code += "\t\tRET "+ to_string(2*total_stack_size_used_in_function)+"\n";
+                write_in_code_segment(code);
+            }
+
     }
-#line 2673 "y.tab.c"
+#line 2688 "y.tab.c"
     break;
 
-  case 50:
-#line 989 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 56:
+#line 971 "1905025_Syntax_and_Semantic_Analyzer.y"
                                  {
-            // write_to_log("expression_statement", "SEMICOLON");
-            //write_to_console("expression_statement", "SEMICOLON");
             
             (yyval.symbolInfo) = new SymbolInfo("","expression_statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
@@ -2684,15 +2697,12 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
         }
-#line 2688 "y.tab.c"
+#line 2701 "y.tab.c"
     break;
 
-  case 51:
-#line 999 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 57:
+#line 979 "1905025_Syntax_and_Semantic_Analyzer.y"
                                {
-            // write_to_log("expression_statement", "expression SEMICOLON");
-            //write_to_console("expression_statement", "expression SEMICOLON");
-
             (yyval.symbolInfo) = new SymbolInfo("","expression_statement");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier((yyvsp[-1].symbolInfo)->get_specifier());
@@ -2700,17 +2710,16 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
         }
-#line 2704 "y.tab.c"
+#line 2714 "y.tab.c"
     break;
 
-  case 52:
-#line 1010 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 58:
+#line 987 "1905025_Syntax_and_Semantic_Analyzer.y"
                           {
             yyclearin;
             yyerrok;
 
             write_error("Syntax error at expression of expression statement");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
 
             SymbolInfo* error_info = new SymbolInfo("error", "expression", total_line_count);
             (yyval.symbolInfo) = new SymbolInfo("", "expression_statement");
@@ -2718,50 +2727,44 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({ error_info, (yyvsp[0].symbolInfo) });
         }
-#line 2722 "y.tab.c"
+#line 2731 "y.tab.c"
     break;
 
-  case 53:
-#line 1026 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 59:
+#line 1002 "1905025_Syntax_and_Semantic_Analyzer.y"
               {
-            // write_to_log("variable", "ID");
-            //write_to_console("variable", "ID");
             (yyval.symbolInfo) = new SymbolInfo("","variable");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
 
-            // print_debug(641, $1->get_name()+ " Id found");
-
             SymbolInfo* prevID = symboltable->look_up((yyvsp[0].symbolInfo)->get_name());
+
         
             if( !prevID){
                 (yyval.symbolInfo)->set_specifier("error");
-                // log_file<<"Error at line no "<<total_line_count<<" : syntax error\n";
                 write_error("Undeclared variable '" + (yyvsp[0].symbolInfo)->get_name()+ "'");
                 
             }else if(prevID->is_array()){
                 write_error("Type mismatch for variable '"+  (yyvsp[0].symbolInfo)->get_name()+ "'");
             }else {
+                (yyval.symbolInfo)->set_stack_offset(prevID->get_stack_offset());
                 (yyval.symbolInfo)->set_specifier(prevID->get_specifier());
-
             }
     }
-#line 2752 "y.tab.c"
+#line 2757 "y.tab.c"
     break;
 
-  case 54:
-#line 1051 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 60:
+#line 1023 "1905025_Syntax_and_Semantic_Analyzer.y"
                                         {
-            // write_to_log("variable", "ID LSQUARE expression RSQUARE");
-            //write_to_console("variable", "ID LSQUARE expression RSQUARE");
-
             (yyval.symbolInfo) = new SymbolInfo("","variable");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
+
 
             // check if the variable is stored in the symboltable
             SymbolInfo* prev = symboltable->look_up((yyvsp[-3].symbolInfo)->get_name());
@@ -2777,6 +2780,7 @@ yyreduce:
                 (yyval.symbolInfo)->set_specifier("error");
 
             }else {
+                (yyval.symbolInfo)->set_stack_offset(prev->get_stack_offset());
                 (yyval.symbolInfo)->set_specifier(prev->get_specifier());
             }
 
@@ -2784,15 +2788,12 @@ yyreduce:
                 write_error("Array subscript is not an integer" );
             }
     }
-#line 2788 "y.tab.c"
+#line 2792 "y.tab.c"
     break;
 
-  case 55:
-#line 1085 "1905025_Syntax_and_Semantic_Analyzer.y"
-                              {
-            // write_to_log("expression", "logic_expression");
-            //write_to_console("expression", "logic_expression");
-            
+  case 61:
+#line 1056 "1905025_Syntax_and_Semantic_Analyzer.y"
+                              {            
             (yyval.symbolInfo) = new SymbolInfo("","expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
@@ -2800,20 +2801,19 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
     }
-#line 2804 "y.tab.c"
+#line 2805 "y.tab.c"
     break;
 
-  case 56:
-#line 1096 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 62:
+#line 1064 "1905025_Syntax_and_Semantic_Analyzer.y"
                                              {
-            // write_to_log("expression", "variable ASSIGNOP logic_expression");
-            //write_to_console("expression", "variable ASSIGNOP logic_expression");
 
             (yyval.symbolInfo) = new SymbolInfo("","expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
+
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
             
             if((yyvsp[0].symbolInfo)->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression");
@@ -2821,17 +2821,69 @@ yyreduce:
             } else {
                 string type = type_casting((yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo));
                 (yyval.symbolInfo)->set_specifier(type);
-                (yyval.symbolInfo)->code += (yyvsp[-2].symbolInfo)->code + (yyvsp[0].symbolInfo)->code;
-                (yyval.symbolInfo)->code += "\tMOV "+(yyvsp[-2].symbolInfo)->var_name+", CX\n";
-            }
+                
+                SymbolInfo* prev = symboltable->look_up((yyvsp[-2].symbolInfo)->get_name());
+                
+                string code = "\t\tPOP AX\n";
+                int stack_offset = prev->get_stack_offset();
 
+                if(!prev->is_array()){
+                    // NOT AN ARRAY
+                    if(stack_offset == -1){
+                        // A GLOBAL VARIABLE
+                        code +="\t\tMOV "+prev->get_name()+ ", AX\t\t; " + prev->get_name() + " \n";
+                    }else if(prev->is_param()){
+                        // IS A PARAMETER
+                        stack_offset += 2;
+                        code +="\t\tMOV [BP+" + to_string(stack_offset) + "], AX\n";
+                    }else{
+                        // IS A LOCAL VARIABLE
+                        code +="\t\tMOV [BP-" + to_string(stack_offset) + "], AX\n";
+                    }
+                    code += "\t\tPUSH AX\n";
+                }
+                else{
+                    // AN ARRAY
+                    code += "\t\tMOV DX, AX\n";
+                    code += "\t\tPOP AX\t\t;pop the index of the array\n";
+                    code += "\t\tMOV BX, 2\n";
+                    code += "\t\tMUL BX\t\t; AX = 2*index\n";
+                    code += "\t\tMOV BX, AX\n";
+
+                    if(stack_offset == -1){
+                        // A GLOBAL ARRAY
+                        code +="\t\tMOV " + prev->get_name() +"[BX] , DX\t\t; write DATA to ARRAY " + prev->get_name() +"\n";
+                    }else if(prev->is_param()){
+                        // A PARAMETER
+                        stack_offset += 2;
+                        code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                        code += "\t\tADD BX, AX\n";
+                        code += "\t\tPUSH BP\n";
+                        code += "\t\tADD BP, BX\n";
+                        code += "\t\tMOV [BP], DX\n";
+                        code += "\t\tPOP BP\n";
+                    }else{
+                        // A LOCAL VARIABLE
+                        code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                        code += "\t\tADD BX, AX\n";
+                        code += "\t\tPUSH BP\n";
+                        code += "\t\tSUB BP, BX\n";
+                        code += "\t\tMOV [BP], DX\n";
+                        code += "\t\tPOP BP\n";
+                    }
+
+                    code += "\t\tPUSH DX\n";
+                }
+
+                write_in_code_segment(code);
+            }              
             
     }
-#line 2831 "y.tab.c"
+#line 2883 "y.tab.c"
     break;
 
-  case 57:
-#line 1121 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 63:
+#line 1140 "1905025_Syntax_and_Semantic_Analyzer.y"
                                   {
             // write_to_log("logic_expression", "rel_expression");
             //write_to_console("logic_expression", "rel_expression");
@@ -2843,13 +2895,12 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
 
-            (yyval.symbolInfo)->code +=(yyvsp[0].symbolInfo)->code; 
         }
-#line 2849 "y.tab.c"
+#line 2900 "y.tab.c"
     break;
 
-  case 58:
-#line 1134 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 64:
+#line 1152 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                 {
             // write_to_log("logic_expression", "rel_expression LOGICOP rel_expression");
             //write_to_console("logic_expression", "rel_expression LOGICOP rel_expression");
@@ -2868,16 +2919,45 @@ yyreduce:
             }
 
             (yyval.symbolInfo)->set_specifier("INT");
+
+
+            string yLabel = new_label();
+            string nLabel = new_label(); 
+            string code = "";
+            code += "\t\tPOP BX\t\t; " + (yyvsp[0].symbolInfo)->get_name() + " popped\n";
+            code += "\t\tPOP AX\t\t; " + (yyvsp[-2].symbolInfo)->get_name() + " popped\n";
+            if((yyvsp[-1].symbolInfo)->get_name() == "||"){
+                code += "\t\tCMP AX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJNE "+ yLabel + " \n";
+                code += "\t\tCMP BX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJNE "+ yLabel + " \n";
+                code += "\t\tMOV AX, 0\n";
+                code += "\t\tJMP "+ nLabel + " \n";
+                code += "\t" + yLabel + ": \n";
+                code += "\t\tMOV AX, 1\n";
+                code += "\t"+ nLabel + ": \n"; 
+            }else if((yyvsp[-1].symbolInfo)->get_name() == "&&"){
+                code += "\t\tCMP AX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJE "+ yLabel + " \n";
+                code += "\t\tCMP BX, 0\t\t; if ax = 1\n"; 
+                code += "\t\tJE "+ yLabel + " \n";
+                code += "\t\tMOV AX, 1\n";
+                code += "\t\tJMP "+ nLabel + " \n";
+                code += "\t" + yLabel + ": \n";
+                code += "\t\tMOV AX, 0\n";
+                code += "\t"+ nLabel + ": \n";
+            }
+
+            code += "\t\tPUSH AX\n";
+            write_in_code_segment(code);
+
         }
-#line 2873 "y.tab.c"
+#line 2956 "y.tab.c"
     break;
 
-  case 59:
-#line 1157 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 65:
+#line 1207 "1905025_Syntax_and_Semantic_Analyzer.y"
                                    {
-            // write_to_log("rel_expression", "simple_expression");
-            //write_to_console("rel_expression", "simple_expression");
-
             (yyval.symbolInfo) = new SymbolInfo("", "rel_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
@@ -2889,22 +2969,24 @@ yyreduce:
                 (yyval.symbolInfo)->set_array();
             }
 
-            (yyval.symbolInfo)->code +=(yyvsp[0].symbolInfo)->code; 
         }
-#line 2895 "y.tab.c"
+#line 2974 "y.tab.c"
     break;
 
-  case 60:
-#line 1174 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 66:
+#line 1220 "1905025_Syntax_and_Semantic_Analyzer.y"
                                                     {
-            // write_to_log("rel_expression", "simple_expression RELOP simple_expression");
-            //write_to_console("rel_expression", "simple_expression RELOP simple_expression");
             (yyval.symbolInfo) = new SymbolInfo("", "rel_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+
+            string relop = get_relational_command((yyvsp[-1].symbolInfo)->get_name());
             
+            string ifLabel = new_label();
+            string elseLabel = new_label();
+
             if((yyvsp[-2].symbolInfo)->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression " );
             }
@@ -2914,16 +2996,26 @@ yyreduce:
             }
             
             (yyval.symbolInfo)->set_specifier("INT");
+            
+            string code = "\t\tPOP BX\t\t; "+(yyvsp[0].symbolInfo)->get_name()+" popped\n";
+            code += "\t\tPOP AX\t\t; "+(yyvsp[-2].symbolInfo)->get_name()+" popped\n";
+            code += "\t\t;CHECKING IF\n";
+            code += "\t\tCMP AX, BX\n";
+            code += "\t\t" + relop + " " + ifLabel + "\n";
+            code += "\t\tPUSH 0\n";
+            code += "\t\tJMP "+ elseLabel+" \n";
+            code += "\t"+ ifLabel+":\n";
+            code += "\t\tPUSH 1\n";
+            code += "\t"+ elseLabel+":";
+
+            write_in_code_segment(code);
     }
-#line 2919 "y.tab.c"
+#line 3014 "y.tab.c"
     break;
 
-  case 61:
-#line 1196 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 67:
+#line 1258 "1905025_Syntax_and_Semantic_Analyzer.y"
                          {
-            // write_to_log("simple_expression", "term");
-            //write_to_console("simple_expression", "term");
-
             (yyval.symbolInfo) = new SymbolInfo("", "simple_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
@@ -2935,44 +3027,43 @@ yyreduce:
                 (yyval.symbolInfo)->set_array();
             } 
 
-            (yyval.symbolInfo)->code +=(yyvsp[0].symbolInfo)->code;
         }
-#line 2941 "y.tab.c"
+#line 3032 "y.tab.c"
     break;
 
-  case 62:
-#line 1213 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 68:
+#line 1271 "1905025_Syntax_and_Semantic_Analyzer.y"
                                        {
-            // write_to_log("simple_expression", "simple_expression ADDOP term");
-            //write_to_console("simple_expression", "simple_expression ADDOP term");
-
             (yyval.symbolInfo) = new SymbolInfo("", "simple_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
 
             if((yyvsp[-2].symbolInfo)->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression " );
-            }
-
-            if((yyvsp[0].symbolInfo)->get_specifier() == "VOID"){
+            } else if((yyvsp[0].symbolInfo)->get_specifier() == "VOID"){
                 write_error("Void cannot be used in expression "  );
-            }
-            else if(((yyvsp[-2].symbolInfo)->get_specifier() == "FLOAT" && (yyvsp[0].symbolInfo)->get_specifier() == "INT") || (((yyvsp[-2].symbolInfo)->get_specifier() == "INT" && (yyvsp[0].symbolInfo)->get_specifier() == "FLOAT"))){
+            } else if(((yyvsp[-2].symbolInfo)->get_specifier() == "FLOAT" && (yyvsp[0].symbolInfo)->get_specifier() == "INT") || (((yyvsp[-2].symbolInfo)->get_specifier() == "INT" && (yyvsp[0].symbolInfo)->get_specifier() == "FLOAT"))){
                 (yyval.symbolInfo)->set_specifier("FLOAT");
-            }else if((yyvsp[-2].symbolInfo)->get_specifier() == "INT" && (yyvsp[0].symbolInfo)->get_specifier() == "INT"){
+            } else if((yyvsp[-2].symbolInfo)->get_specifier() == "INT" && (yyvsp[0].symbolInfo)->get_specifier() == "INT"){
                 (yyval.symbolInfo)->set_specifier("INT");
-            }else{
+            } else{
                 (yyval.symbolInfo)->set_specifier("error");
             }
 
+            string code = "\t\tPOP AX\t\t;" + (yyvsp[0].symbolInfo)->get_name()+" popped\n";
+            code += "\t\tPOP CX\t\t;" + (yyvsp[-2].symbolInfo)->get_name()+" popped\n";
+            string add_or_sub = ((yyvsp[-1].symbolInfo)->get_name() == "+")? "ADD" : "SUB";
+            code += "\t\t" + add_or_sub + " CX, AX\n";
+            code += "\t\tPUSH CX\n"; 
+            write_in_code_segment(code);
         }
-#line 2972 "y.tab.c"
+#line 3063 "y.tab.c"
     break;
 
-  case 63:
-#line 1242 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 69:
+#line 1300 "1905025_Syntax_and_Semantic_Analyzer.y"
                         {
             // write_to_log("term", "unary_expression");
             //write_to_console("term", "unary_expression");
@@ -2988,17 +3079,13 @@ yyreduce:
                 (yyval.symbolInfo)->set_array();
             }
 
-            (yyval.symbolInfo)->code +=(yyvsp[0].symbolInfo)->code; 
         }
-#line 2994 "y.tab.c"
+#line 3084 "y.tab.c"
     break;
 
-  case 64:
-#line 1259 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 70:
+#line 1316 "1905025_Syntax_and_Semantic_Analyzer.y"
                                       {
-            // write_to_log("term", "term MULOP unary_expression");
-            //write_to_console("term", "term MULOP unary_expression");
-
             (yyval.symbolInfo) = new SymbolInfo("", "term");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
@@ -3030,18 +3117,33 @@ yyreduce:
                     (yyval.symbolInfo)->set_specifier("error");
                 }
             }
-            // print_debug(833, $1->toString()+" "+$3->toString()+" "+$$->toString());
 
+            string code = "\t\tPOP CX\n";
+            code += "\t\tPOP AX\n"; 
+            code += "\t\tCWD\n";
+            if((yyvsp[-1].symbolInfo)->get_name() == "*"){
+                code += "\t\tMUL CX\n";
+                code += "\t\tPUSH AX\n";  
+            }
+            else if((yyvsp[-1].symbolInfo)->get_name() == "/"){
+                code += "\t\tXOR DX, DX\t;clearing DX\n"; 
+                code += "\t\tDIV CX\n";
+                code += "\t\tPUSH AX\n";
+            }else{
+                code += "\t\tXOR DX, DX\t;clearing DX\n";
+                code += "\t\tDIV CX\n";
+                code += "\t\tPUSH DX\n";
+            }
+
+            write_in_code_segment(code);
+             
         }
-#line 3037 "y.tab.c"
+#line 3142 "y.tab.c"
     break;
 
-  case 65:
-#line 1302 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 71:
+#line 1372 "1905025_Syntax_and_Semantic_Analyzer.y"
                                           {
-            // write_to_log("unary_expression", "ADDOP unary_expression");
-            //write_to_console("unary_expression", "ADDOP unary_expression");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unary_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-1].symbolInfo)->get_start_line());
@@ -3054,39 +3156,36 @@ yyreduce:
             } else{
                 (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
             }
+
+            string code = "\t\tPOP AX\t\t\t; "+ (yyvsp[0].symbolInfo)->get_name() + " popped\n";
+            if((yyvsp[-1].symbolInfo)->get_name() == "-"){
+                code += "\t\tNEG AX\n";
+            }
+            code += "\t\tPUSH AX\n";
+
+            write_in_code_segment(code);
+
         }
-#line 3059 "y.tab.c"
+#line 3170 "y.tab.c"
     break;
 
-  case 66:
-#line 1319 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 72:
+#line 1395 "1905025_Syntax_and_Semantic_Analyzer.y"
                                {
-            // write_to_log("unary_expression", "NOT unary_expression");
-            //write_to_console("unary_expression", "NOT unary_expression");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unary_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_start_line((yyvsp[-1].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
-
-            if((yyvsp[0].symbolInfo)->get_specifier() == "VOID"){
-                write_error("Void cannot be used in expression "  );
-                (yyval.symbolInfo)->set_specifier("error");
-            } else{
-                (yyval.symbolInfo)->set_specifier("INT");
-            }
+            (yyval.symbolInfo)->set_specifier("INT");
 
         }
-#line 3082 "y.tab.c"
+#line 3184 "y.tab.c"
     break;
 
-  case 67:
-#line 1337 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 73:
+#line 1404 "1905025_Syntax_and_Semantic_Analyzer.y"
                  {
-            // write_to_log("unary_expression", "factor");
-            //write_to_console("unary_expression", "factor");
-
             (yyval.symbolInfo) = new SymbolInfo("", "unary_expression");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             
@@ -3095,19 +3194,14 @@ yyreduce:
             (yyval.symbolInfo)->set_specifier((yyvsp[0].symbolInfo)->get_specifier());
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-
-            (yyval.symbolInfo)->code += (yyval.symbolInfo)->code;
-            
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) }); 
         }
-#line 3104 "y.tab.c"
+#line 3200 "y.tab.c"
     break;
 
-  case 68:
-#line 1357 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 74:
+#line 1418 "1905025_Syntax_and_Semantic_Analyzer.y"
                   {
-            // write_to_log("factor", "variable");
-            //write_to_console("factor", "variable");
             (yyval.symbolInfo) = new SymbolInfo("", "factor");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             
@@ -3118,21 +3212,66 @@ yyreduce:
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            // print_debug(1142, to_string($1->get_end_line()));
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
 
-            (yyval.symbolInfo)->code += (yyvsp[0].symbolInfo)->code;
-            (yyval.symbolInfo)->code += "\tMOV CX, "+(yyvsp[0].symbolInfo)->var_name+"\n";
+            SymbolInfo* prev = symboltable->look_up((yyvsp[0].symbolInfo)->get_name());
+            int stack_offset = prev->get_stack_offset();
+            string code = "";
 
+            if(!prev->is_array()){
+                // NOT AN ARRAY
+                if(stack_offset == -1){
+                    // A GLOBAL VARIABLE
+                    code +="\t\tMOV AX, "+ prev->get_name() + "\t\t; " + prev->get_name() + " \n";
+                }else if(prev->is_param()){
+                    // IS A PARAMETER
+                    stack_offset += 2;
+                    code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]\t\t; "+ prev->get_name() + " accessed \n";
+                }else{
+                    // IS A LOCAL VARIABLE
+                    code +="\t\tMOV AX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n";
+                }
+            }
+            else{
+                // AN ARRAY
+                code += "\t\tPOP AX\t\t;pop the index of the array\n";
+                code += "\t\tMOV BX, 2\n";
+                code += "\t\tMUL BX\t\t; AX = 2*index\n";
+                code += "\t\tMOV BX, AX\n";
+
+                if(stack_offset == -1){
+                    // A GLOBAL ARRAY
+                    code +="\t\tMOV AX, "+ prev->get_name() +"[BX]\t\t; READ DATA FROM ARRAY " + prev->get_name() +"\n";
+                }else if(prev->is_param()){
+                    // A PARAMETER
+                    stack_offset += 2;
+                    code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                    code += "\t\tADD BX, AX\n";
+                    code += "\t\tPUSH BP\n";
+                    code += "\t\tADD BP, BX\n";
+                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tPOP BP\n";
+                }else{
+                    // A LOCAL VARIABLE
+                    code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                    code += "\t\tADD BX, AX\n";
+                    code += "\t\tPUSH BP\n";
+                    code += "\t\tSUB BP, BX\n";
+                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tPOP BP\n";
+                }
+            }
+            code += "\t\tPUSH AX\n";
+
+            if(!in_argument_list)
+                write_in_code_segment(code);
     }
-#line 3129 "y.tab.c"
+#line 3270 "y.tab.c"
     break;
 
-  case 69:
-#line 1377 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 75:
+#line 1483 "1905025_Syntax_and_Semantic_Analyzer.y"
                                    {
-            // write_to_log("factor", "LPAREN expression RPAREN");
-            //write_to_console("factor", "LPAREN expression RPAREN");
             (yyval.symbolInfo) = new SymbolInfo("", "factor");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
             
@@ -3144,41 +3283,33 @@ yyreduce:
                 (yyval.symbolInfo)->set_specifier((yyvsp[-2].symbolInfo)->get_specifier());
             }
 
-            (yyval.symbolInfo)->code += (yyvsp[-1].symbolInfo)->code;
 
             (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            // print_debug(1162, to_string($$->get_end_line()));
             (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
         }
-#line 3155 "y.tab.c"
+#line 3292 "y.tab.c"
     break;
 
-  case 70:
-#line 1398 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 76:
+#line 1500 "1905025_Syntax_and_Semantic_Analyzer.y"
                     {
-            // write_to_log("factor", "CONST_INT");
-            //write_to_console("factor", "CONST_INT");
-
             (yyval.symbolInfo) = new SymbolInfo("", "factor");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier("INT");
 
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            // print_debug(1174, to_string($1->get_end_line()));
-            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-            (yyval.symbolInfo)->code = "\tMOV CX, "+(yyvsp[0].symbolInfo)->get_name()+"\n";
+            (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
+
+            write_in_code_segment("\t\tMOV AX, " + (yyvsp[0].symbolInfo)->get_name()+"\t\t ;integer found\n\t\tPUSH AX\n");
         }
-#line 3174 "y.tab.c"
+#line 3308 "y.tab.c"
     break;
 
-  case 71:
-#line 1412 "1905025_Syntax_and_Semantic_Analyzer.y"
-                      {
-            // write_to_log("factor", "CONST_FLOAT");
-            //write_to_console("factor", "CONST_FLOAT");
-            
+  case 77:
+#line 1511 "1905025_Syntax_and_Semantic_Analyzer.y"
+                      {            
             (yyval.symbolInfo) = new SymbolInfo("", "factor");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_specifier("FLOAT");
@@ -3186,70 +3317,69 @@ yyreduce:
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             // print_debug(1186, to_string($1->get_end_line()));
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo) });
-            (yyval.symbolInfo)->code = "\tMOV CX, "+(yyvsp[0].symbolInfo)->get_name()+"\n";
+            write_in_code_segment("\t\tMOV CX, " + (yyvsp[0].symbolInfo)->get_name()+"\n");
+
         }
-#line 3192 "y.tab.c"
+#line 3324 "y.tab.c"
     break;
 
-  case 72:
-#line 1425 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 78:
+#line 1522 "1905025_Syntax_and_Semantic_Analyzer.y"
                          {
-            // write_to_log("factor", "variable INCOP");
-            //write_to_console("factor", "variable INCOP");
-            (yyval.symbolInfo) = new SymbolInfo("", "factor");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo) = new SymbolInfo("variableINCOP", "factor");
+            // $$->set_name(stringconcat({$1, $2}));
+            (yyval.symbolInfo)->set_var_name((yyvsp[-1].symbolInfo)->get_name());
+
 
             if(isVoid((yyvsp[-1].symbolInfo))){
                 (yyval.symbolInfo)->set_specifier("error");
             } else{
                 (yyval.symbolInfo)->set_specifier((yyvsp[-1].symbolInfo)->get_specifier());
-                (yyval.symbolInfo)->code += (yyvsp[-1].symbolInfo)->code;
-                (yyval.symbolInfo)->code += "\tMOV CX, "+(yyvsp[-1].symbolInfo)->var_name + "\n";
-                (yyval.symbolInfo)->code += "\tINC CX \n";
             }
 
             (yyval.symbolInfo)->set_start_line((yyvsp[-1].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            //  print_debug(1202, to_string($2->get_end_line()));
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+
+            varable_incop_decop_operation((yyvsp[-1].symbolInfo)->get_name(), "INC");
         }
-#line 3217 "y.tab.c"
+#line 3347 "y.tab.c"
     break;
 
-  case 73:
-#line 1445 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 79:
+#line 1540 "1905025_Syntax_and_Semantic_Analyzer.y"
                          {
-            // write_to_log("factor", "variable DECOP");
-            //write_to_console("factor", "variable DECOP");
-            (yyval.symbolInfo) = new SymbolInfo("", "factor");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo) = new SymbolInfo("variableDECOP", "factor");
+            // $$->set_name(stringconcat({$1, $2}));
+            (yyval.symbolInfo)->set_var_name((yyvsp[-1].symbolInfo)->get_name());
             
             if(isVoid((yyvsp[-1].symbolInfo))){
                 (yyval.symbolInfo)->set_specifier("error");
             } else{
                 (yyval.symbolInfo)->set_specifier((yyvsp[-1].symbolInfo)->get_specifier());
-                (yyval.symbolInfo)->code += (yyvsp[-1].symbolInfo)->code;
-                (yyval.symbolInfo)->code += "\tMOV CX, "+(yyvsp[-1].symbolInfo)->var_name+"\n";
-                (yyval.symbolInfo)->code += "\tDEC CX \n";
             }
             (yyval.symbolInfo)->set_start_line((yyvsp[-1].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+
+            varable_incop_decop_operation((yyvsp[-1].symbolInfo)->get_name(), "DEC");
+
+            
         }
-#line 3240 "y.tab.c"
+#line 3370 "y.tab.c"
     break;
 
-  case 74:
-#line 1463 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 80:
+#line 1558 "1905025_Syntax_and_Semantic_Analyzer.y"
                                          {
+            // FUNCTION CALL
+
+            in_argument_list = false;
             (yyval.symbolInfo) = new SymbolInfo("", "factor");
+
             if((yyvsp[-1].symbolInfo)->get_name() == ""){
-                // write_to_log("factor", "ID LPAREN RPAREN");
-                //write_to_console("factor", "ID LPAREN RPAREN");
                 (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[0].symbolInfo)});
             }else{
-                // write_to_log("factor", "ID LPAREN argument_list RPAREN");
-                //write_to_console("factor", "ID LPAREN argument_list RPAREN");
                 (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo)});
             }
 
@@ -3293,72 +3423,125 @@ yyreduce:
                             }
                         }
 
-                        // $$->code += $3->code + "\tCALL "+$1->get_name()
 
                     }
                 }
             }
+            
+            string code = "\n";
+            for(auto x: (yyvsp[-1].symbolInfo)->get_parameters()){
+                // PUSH ALL THE ARGUMENTS IN THE STACK AND CALL THE FUNCTION
+
+                SymbolInfo *temp = symboltable->look_up(x->get_name());
+                int stack_offset = temp->get_stack_offset();
+
+                if(stack_offset != -1){
+                    if(temp->is_param()){
+                        stack_offset += 2;
+                        code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]\t\t; "+ temp->get_name() + " accessed \n";
+                    }else{
+                        code += "\t\tMOV AX, [BP-" + to_string(stack_offset)+"]\t\t ; access  "+temp->get_name()+ "\n";
+                    }
+                }else{
+                    code += "\t\tMOV AX, "+temp->get_name()+"\n";
+                }
+                code += "\t\tPUSH AX\t\t; pushed "+temp->get_name()+ "\n"; 
+
+            }
+            code += "\t\tCALL "+ (yyvsp[-3].symbolInfo)->get_name()+ "\n\n";
+            code += "\t\tPUSH AX\n";
+            write_in_code_segment(code);
+
+
 
         }
-#line 3304 "y.tab.c"
+#line 3459 "y.tab.c"
     break;
 
-  case 75:
-#line 1525 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 81:
+#line 1645 "1905025_Syntax_and_Semantic_Analyzer.y"
                           {
-            // write_to_log("argument_list", "arguments");
-            //write_to_console("argument_list", "arguments");
-            
             (yyval.symbolInfo) = new SymbolInfo("", "argument_list");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
             (yyval.symbolInfo)->set_parameters((yyvsp[0].symbolInfo)->get_parameters());
             (yyval.symbolInfo)->set_start_line((yyvsp[0].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
             (yyval.symbolInfo)->add_child({(yyvsp[0].symbolInfo)});
+            in_argument_list = true;
     }
-#line 3320 "y.tab.c"
+#line 3473 "y.tab.c"
     break;
 
-  case 76:
-#line 1536 "1905025_Syntax_and_Semantic_Analyzer.y"
+  case 82:
+#line 1654 "1905025_Syntax_and_Semantic_Analyzer.y"
           {
-            // write_to_log("argument_list", "arguments");
-            //write_to_console("argument_list", "arguments");
-
             (yyval.symbolInfo) = new SymbolInfo("", "argument_list");
+            in_argument_list = true;
+
             
         }
-#line 3332 "y.tab.c"
+#line 3484 "y.tab.c"
     break;
 
-  case 77:
-#line 1569 "1905025_Syntax_and_Semantic_Analyzer.y"
-                                             {
-            // write_to_log("arguments", "arguments COMMA logic_expression");
-            //write_to_console("arguments", "arguments COMMA logic_expression");
-            
+  case 83:
+#line 1661 "1905025_Syntax_and_Semantic_Analyzer.y"
+                         {
+            // the lookahead token is the next token that the parser examines. 
+            // if there is an error the look ahead token becomes the token where the error was found
+            // to find the correct error recovery action we need to clear the lookahead token
+            // by using "yyclearin" we are serving the purpose of clearing the lookahead
+            yyclearin; 
+            // When yyparse() discovers ungrammatical input, it calls yyerror(). 
+            // It also sets a flag saying that it is now in an error state. 
+            // yyparse() stays in this error state until it sees three consecutive tokens 
+            // that are not part of the error.
+            // the yyerrok allows to leave the error state earlier than finding 3 tokens
+            //  yyerrok says-->The old error is finished. If something else goes wrong, 
+            //                  it is to be regarded as a new error.
+            yyerrok;
+            cout<<"Syntax error at arguments\n";
+            (yyval.symbolInfo) = new SymbolInfo("", "argument_list");
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-1].symbolInfo)}));
+            (yyval.symbolInfo)->set_parameters((yyvsp[-1].symbolInfo)->get_parameters());
+
+        }
+#line 3509 "y.tab.c"
+    break;
+
+  case 84:
+#line 1684 "1905025_Syntax_and_Semantic_Analyzer.y"
+                            {in_argument_list = true;}
+#line 3515 "y.tab.c"
+    break;
+
+  case 85:
+#line 1684 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                                        {            
             (yyval.symbolInfo) = new SymbolInfo("", "arguments");
-            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-2].symbolInfo), (yyvsp[-1].symbolInfo), (yyvsp[0].symbolInfo)}));
-            (yyval.symbolInfo)->set_start_line((yyvsp[-2].symbolInfo)->get_start_line());
+            (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[-3].symbolInfo), (yyvsp[-2].symbolInfo), (yyvsp[0].symbolInfo)}));
+            (yyval.symbolInfo)->set_start_line((yyvsp[-3].symbolInfo)->get_start_line());
             (yyval.symbolInfo)->set_end_line((yyvsp[0].symbolInfo)->get_end_line());
-            (yyval.symbolInfo)->add_child({(yyvsp[-2].symbolInfo),(yyvsp[-1].symbolInfo),(yyvsp[0].symbolInfo) });
+            (yyval.symbolInfo)->add_child({(yyvsp[-3].symbolInfo),(yyvsp[-2].symbolInfo),(yyvsp[0].symbolInfo) });
 
             if((yyvsp[0].symbolInfo)->get_specifier() == "VOID"){
                 write_error("Void cannot be used in argument "  );
                 (yyval.symbolInfo)->set_specifier("error");
             }
-
-            (yyval.symbolInfo)->set_parameters((yyvsp[-2].symbolInfo)->get_parameters());
+            (yyval.symbolInfo)->set_parameters((yyvsp[-3].symbolInfo)->get_parameters());
             (yyval.symbolInfo)->add_parameter((yyvsp[0].symbolInfo));
         }
-#line 3355 "y.tab.c"
+#line 3534 "y.tab.c"
     break;
 
-  case 78:
-#line 1587 "1905025_Syntax_and_Semantic_Analyzer.y"
-                           {
-            // write_to_log("arguments", "logic_expression");
-            //write_to_console("arguments", "logic_expression");
+  case 86:
+#line 1698 "1905025_Syntax_and_Semantic_Analyzer.y"
+          {in_argument_list = true;}
+#line 3540 "y.tab.c"
+    break;
+
+  case 87:
+#line 1698 "1905025_Syntax_and_Semantic_Analyzer.y"
+                                                      {
 
             (yyval.symbolInfo) = new SymbolInfo("", "arguments");
             (yyval.symbolInfo)->set_name(stringconcat({(yyvsp[0].symbolInfo)}));
@@ -3374,11 +3557,11 @@ yyreduce:
             (yyval.symbolInfo)->add_parameter((yyvsp[0].symbolInfo));
 
         }
-#line 3378 "y.tab.c"
+#line 3561 "y.tab.c"
     break;
 
 
-#line 3382 "y.tab.c"
+#line 3565 "y.tab.c"
 
       default: break;
     }
@@ -3610,7 +3793,161 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 1610 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 1719 "1905025_Syntax_and_Semantic_Analyzer.y"
+
+
+
+string open_assembly_file(){
+    ofstream assembly_code;
+    string file_name = "code.asm";
+    assembly_code.open(file_name);
+    if(!assembly_code.is_open()){
+        cout<<"Code.asm can not be opened in open_assembly_file\n";
+        return "";
+    }
+    assembly_code<<".MODEL SMALL\n";
+    assembly_code<<".STACK 500H\n";
+    assembly_code<<".DATA\n";
+    assembly_code<<"\tCR EQU 0DH\n";
+    assembly_code<<"\tNL EQU 0AH\n";
+    total_line_in_assembly += 5;
+    end_line_of_data_segment = total_line_in_assembly;
+    end_line_of_code_segment = total_line_in_assembly;
+
+
+    
+    assembly_code<<".CODE\n";
+    end_line_of_code_segment = ++total_line_in_assembly;
+
+    
+    assembly_code.close();
+
+    return file_name;
+}
+
+void print_new_line(){
+    /* NEWLINE PROC
+                push ax
+                push dx
+                mov ah, 2
+                mov dl, cr
+                int 21h
+                mov dl, nl
+                int 21h
+                pop dx
+                pop ax
+                ret
+                NEW LINE ENDP 
+    */
+    
+    string code = "\n\n\tNEWLINE PROC\n\t\tPUSH AX\n\t\tPUSH DX\n\t\tMOV AH, 2\n\t\tMOV DL,CR\n\t\tINT 21H\n\t\tMOV DL,NL\n\t\tINT 21H\n\t\tPOP DX\n\t\tPOP AX\n\t\tRET\n\tNEWLINE ENDP";
+    write("code.asm", code, true);
+    increase_code_segment(code);
+    
+}
+
+ // procedure to print a number
+void print_number(){
+        ofstream code;
+        code.open("code.asm", ios_base::app);
+     
+    code<<"\n\tPRINT_NUMBER PROC \n";
+        code<<"\t\tPUSH BX\n";
+        code<<"\t\tPUSH CX\n";
+        code<<"\t\tPUSH DX\n";
+        code<<"\t\tPUSH AX\n";
+        
+        code<< "\t\t;if(AX < -1) then the number is positive\n";
+        code<<"\t\tCMP AX, 0\n";
+        code<<"\t\tJGE POSITIVE\n";
+        code<<"\t\t;else, the number is negative\n";
+        code<<"\t\tMOV CX, AX\n";
+        code<<"\t\tMOV AH, 2           \n";
+        code<<"\t\tMOV DL, '-'         ;Print a '-' sign\n";
+        code<<"\t\tINT 21H\n";
+        code<<"\t\tNEG CX              ;make AX positive\n";
+        code<<"\t\tMOV AX, CX\n";
+        code<<"\t\tPOSITIVE:\n";
+        code<<"\t\t\tMOV CX, 0        ;Initialize character count\n";
+        code<<"\t\tPUSH_WHILE:\n";
+        code<<"\t\t\tXOR DX, DX  ;clear DX\n";
+        code<<"\t\t\tMOV BX, 10  ;BX has the divisor\n";
+        code<<"\t\t\tDIV BX\n";
+        code<<"\t\t\t;quotient is in AX and remainder is in DX\n";
+        code<<"\t\t\tPUSH DX     ;Division by 10 will have a remainder less than 8 bits\n";
+        code<<"\t\t\tINC CX       ;CX++\n";
+        code<<"\t\t\t;if(AX == 0) then break the loop\n";
+        code<<"\t\t\tCMP AX, 0\n";
+        code<<"\t\t\tJE END_PUSH_WHILE\n";
+        code<<"\t\t;else continue\n";
+        code<<"\t\t\tJMP PUSH_WHILE\n";
+        code<<"\t\tEND_PUSH_WHILE:\n";
+        code<<"\t\t\tMOV AH, 2\n";
+        code<<"\t\tPOP_WHILE:\n";
+        code<<"\t\t\tPOP DX      ;Division by 10 will have a remaainder less than 8 bits\n";
+        code<<"\t\t\tADD DL, '0'\n";
+        code<<"\t\t\tINT 21H     ;So DL will have the desired character\n";
+        code<<"\t\t\tDEC CX       ;CX--\n";
+        code<<"\t\t\t;if(CX <= 0) then end loop\n";
+        code<<"\t\t\tCMP CX, 0\n";
+        code<<"\t\t\tJLE END_POP_WHILE\n";
+        code<<"\t\t\t;else continue\n";
+        code<<"\t\t\tJMP POP_WHILE\n";
+        code<<"\t\t\tEND_POP_WHILE:\n";
+        // code<<"\t\t\t;Print newline\n";
+        // code<<"\t\t\tMOV DL, 0DH\n";
+        // code<<"\t\t\tINT 21H\n";
+        // code<<"\t\t\tMOV DL, 0AH\n";
+        // code<<"\t\t\tINT 21H\n";
+        code<<"\t\t\tPOP AX\n";
+        code<<"\t\t\tPOP DX\n";
+        code<<"\t\t\tPOP CX\n";
+        code<<"\t\t\tPOP BX\n";
+        code<<"\t\t\tRET \n";
+    code<<"\tPRINT_NUMBER ENDP\n";
+    
+    end_line_of_code_segment += 54;
+    total_line_in_assembly += 54;
+
+
+    code.close();
+   
+}
+
+void terminate_assembly_file(){
+    ofstream assembly_code;
+    assembly_code.open("code.asm", ios_base::app);
+
+    if(!assembly_code.is_open()){
+        cout<<"Code.asm can not be opened in terminate_assembly_file\n";
+        return;
+    }
+
+    string code = "END MAIN\n";
+    assembly_code<<code<<endl;
+    increase_code_segment(code);
+    assembly_code.close();
+
+}
+
+void optimize_file(string file_name){
+
+    bool is_optimized = optimize_code(file_name, "temp_optmized.asm");
+
+    while(is_optimized){
+        cout<<"Optimizing ..."<<endl;
+        is_optimized = optimize_code("temp_optmized.asm", "optimized_code.asm");
+        remove("temp_optimized.asm");
+        rename("optimized_code.asm","temp_optmized.asm");
+    }
+
+
+    rename("temp_optmized.asm", "optimized_code.asm");
+
+    cout<<"Optimization completed\n";
+
+}
+
 
 
 int main(int argc, char* argv[]){
@@ -3621,26 +3958,26 @@ int main(int argc, char* argv[]){
         exit(1);
     }
 
-    // log_file.open("log.txt");
     parse_file.open("parse.txt");
     error_file.open("error.txt");
-    assembly_code.open("assembly.txt");
+    
+    string file_name = open_assembly_file();
+
 
     yyin = file;
     yyparse();
 
-    // log_file<<"Total Lines: "<<total_line_count<<"\n";
-    // log_file<<"Total Errors: "<<e_count<<"\n";
-
-    fclose(yyin);
+    print_new_line();
+    print_number();
     
+    terminate_assembly_file();
+
+    optimize_file(file_name);
+
     parse_file.close();
     error_file.close();
-    assembly_code.close();
-    // log_file.close();
+    fclose(yyin);
     return 0;
-
-
 }
 
 

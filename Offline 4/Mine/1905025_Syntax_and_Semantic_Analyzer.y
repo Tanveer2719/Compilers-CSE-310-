@@ -166,7 +166,7 @@
                 write_in_data_segment(code);
             }else{
                 int size = x->get_size();
-                string code = "\t" + x->get_name() + " DW "+to_string(size) +"DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
+                string code = "\t" + x->get_name() + " DW "+to_string(size) +" DUP(?) \t;global array "+x->get_name() +"["+to_string(size)+ "] declared\n";
                 write_in_data_segment(code);
             }                
         }
@@ -221,7 +221,7 @@
                     code += "\t\tSUB BP, BX\t\t ; bp = arrayIndex\n";
                 }
                 code += "\t\tMOV AX, [BP]\n";
-                code += "\t\t"+op+" AX\t\t;  AX -- \n";
+                code += "\t\t"+op+" AX\t\t;  AX INC/DEC \n";
                 code += "\t\tMOV [BP], AX\n";
                 code += "\t\tPOP BP\n";
             }else {
@@ -286,9 +286,6 @@
 %%
 
 start : program {
-            // write_to_log("start", "program");
-            //write_to_console("start", "program");
-
             $$ = new SymbolInfo("","start");
             $$->set_name(stringconcat({$1}));
 
@@ -300,9 +297,6 @@ start : program {
     ;
 
 program : program unit {
-            // write_to_log("program", "program unit");
-            //write_to_console("program", "program unit");
-
             $$ = new SymbolInfo("", "program");
             $$->set_name(stringconcat({$1,$2}));
 
@@ -312,9 +306,6 @@ program : program unit {
             
         }
         | unit {
-            // write_to_log("program", "unit");
-            //write_to_console("program", "unit");
-
             $$ = new SymbolInfo("", "program");
             $$->set_name(stringconcat({$1}));
 
@@ -328,9 +319,6 @@ program : program unit {
 
 
 unit : var_declaration {
-            // write_to_log("unit", "var_declaration");
-            //write_to_console("unit", "var_declaration");
-
             $$ = new SymbolInfo("", "unit");
             $$->set_name(stringconcat({$1}));
 
@@ -340,9 +328,6 @@ unit : var_declaration {
         
         }
         | func_declaration {
-            // write_to_log("unit", "func_declaration");
-            //write_to_console("unit", "func_declaration");
-
             $$ = new SymbolInfo("", "unit");
             $$->set_name(stringconcat({$1}));
 
@@ -351,9 +336,6 @@ unit : var_declaration {
             $$->add_child({$1 });
         }
         | func_definition {
-            // write_to_log("unit", "func_definition");
-            //write_to_console("unit", "func_definition");
-
             $$ = new SymbolInfo("", "unit");
             $$->set_name(stringconcat({$1}));
 
@@ -364,11 +346,7 @@ unit : var_declaration {
     ;
 
 
-func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN parameter_list RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN parameter_list RPAREN SEMICOLON" );  
-
-             
+func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {            
             $$ = new SymbolInfo("", "func_declaration");
             $$->set_name(stringconcat({$1, $2, $3, $4, $5, $6 }));
 
@@ -387,9 +365,6 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
             }  
     }
         | type_specifier ID LPAREN RPAREN SEMICOLON {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN RPAREN SEMICOLON" );  
-
             $$ = new SymbolInfo("", "func_declaration");
             $$->set_name(stringconcat({$1,$2,$3,$4,$5}));
 
@@ -408,8 +383,6 @@ func_declaration : type_specifier ID LPAREN parameter_list RPAREN SEMICOLON {
     }
     
         | type_specifier ID LPAREN error RPAREN SEMICOLON {
-            // write_to_log("func_declaration", "type_specifier ID LPAREN RPAREN SEMICOLON");
-            //write_to_console("func_declaration" ,"type_specifier ID LPAREN error RPAREN SEMICOLON" );
             error_file<<"Line# "<<total_line_count<<": Syntax error at parameter list of function declaration\n";
         
             SymbolInfo* error_file = new SymbolInfo("error", "func_declaration", total_line_count);
@@ -441,9 +414,6 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_functio
         }
 
         | type_specifier ID LPAREN RPAREN {insert_function($2,$1); } {start_procedure($2->get_name(), $1->get_name());}compound_statement {   
-            // write_to_log("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
-            //write_to_console("func_definition", "type_specifier ID LPAREN RPAREN compound_statement");
-
             $$ = new SymbolInfo("", "func_definition");
             $$->set_name(stringconcat({$1, $2, $3, $4, $7}));
 
@@ -456,9 +426,6 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_functio
     }
     
         | type_specifier ID LPAREN error RPAREN compound_statement {    
-            //write_to_console("func_definition", "type_specifier ID LPAREN error RPAREN compound_statement");
-            // write_error("Syntax error at parameter list of function definition");
-
             SymbolInfo* error_info = new SymbolInfo("error","parameter_list",$3->get_start_line());
             $$ = new SymbolInfo("", "func_definition");
             $$->set_name(stringconcat({$1, $2, $3, $5, $6}));
@@ -470,9 +437,6 @@ func_definition : type_specifier ID LPAREN parameter_list RPAREN {insert_functio
 
 
 parameter_list : parameter_list COMMA type_specifier ID {
-            // write_to_log("parameter_list ", "parameter_list COMMA type_specifier ID");
-            //write_to_console("parameter_list", "parameter_list COMMA type_specifier ID");
-
             $$ = new SymbolInfo("", "parameter_list");
             $$->set_parameters($1->get_parameters());
             $$->set_name(stringconcat({$1, $2, $3, $4}));
@@ -487,9 +451,6 @@ parameter_list : parameter_list COMMA type_specifier ID {
             isVoid($3);         // if error write the error info
         }
         | parameter_list COMMA type_specifier {
-            // write_to_log("parameter_list ", "parameter_list COMMA type_specifier");
-            //write_to_console("parameter_list", "parameter_list COMMA type_specifier");
-
             $$ = new SymbolInfo("", "parameter_list");
             $$->set_parameters($1->get_parameters());
             $$->set_name(stringconcat({$1, $2, $3}));
@@ -506,9 +467,6 @@ parameter_list : parameter_list COMMA type_specifier ID {
             isVoid($3);
         }
         | type_specifier ID {
-            // write_to_log("parameter_list ", "type_specifier ID");
-            //write_to_console("parameter_list", "type_specifier ID");
-
             $$ = new SymbolInfo("", "parameter_list");
             $$->set_name(stringconcat({$1, $2}));
             $2->set_specifier($1->get_specifier());
@@ -522,9 +480,6 @@ parameter_list : parameter_list COMMA type_specifier ID {
             symbolInfoList->set_parameters($$->get_parameters());
         }
         | type_specifier {
-            // write_to_log("parameter_list ", "type_specifier");
-            //write_to_console("parameter_list", "type_specifier");
-
             $$ = new SymbolInfo("", "parameter_list");
             $$->set_name(stringconcat({$1}));
             SymbolInfo* noNameInfo = new SymbolInfo("", "ID");
@@ -540,9 +495,6 @@ parameter_list : parameter_list COMMA type_specifier ID {
     }
     
         | type_specifier error {
-            // write_to_log("parameter_list ", "type_specifier ID");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
-            //write_to_console("parameter_list", "type_specifier error");
             write_error("Syntax error at parameter list of function definition");
 
             $$ = new SymbolInfo("", "parameter_list");
@@ -568,9 +520,6 @@ compound_statement : LCURL modified_lcurl statements RCURL {
             
         }
         | LCURL modified_lcurl RCURL {
-            // write_to_log("compound_statement", "LCURL RCURL");
-            //write_to_console("compound_statement", "LCURL RCURL");
-
             $$ = new SymbolInfo("","compound_statement");
             $$->set_name(stringconcat({$1, $3}));
 
@@ -671,9 +620,6 @@ var_declaration : type_specifier declaration_list SEMICOLON {
 
 
 type_specifier : INT {
-            //write_to_console("type_specifier", "INT");
-            // write_to_log("type_specifier", "INT");
-            
             $$ = new SymbolInfo("", "type_specifier");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -682,9 +628,6 @@ type_specifier : INT {
             $$->add_child({$1 });
         }
         | FLOAT {
-            // log_file<<"type_specifier : "<<"FLOAT\n";
-            //write_to_console("type_specifier", "FLOAT");
-
             $$ = new SymbolInfo("", "type_specifier");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -693,9 +636,6 @@ type_specifier : INT {
             $$->add_child({$1 });
         }
         | VOID {
-            // log_file<<"type_specifier : "<<"VOID\n";
-            //write_to_console("type_specifier", "VOID");
-
             $$ = new SymbolInfo("", "type_specifier");
             $$->set_name(stringconcat({$1}));
             $$->set_specifier($1->get_specifier());
@@ -734,9 +674,8 @@ declaration_list :declaration_list COMMA ID {
             symbolInfoList->set_declarations($1->get_declarations());
             symbolInfoList->add_declaration($3);
 
-            string s = $5->get_name();
-            int array_size = stoi(s);
-            $3->set_size(array_size);
+            // set the size of the array
+            $3->set_size(stoi($5->get_name()));
 
         }
         | ID {
@@ -755,15 +694,12 @@ declaration_list :declaration_list COMMA ID {
             $$->set_name(stringconcat({$1, $2, $3, $4}));
             $1->set_array();    // since it is a production for detecting array we shall set the array flag of symbolinfo on
             $$->add_declaration($1);
-            // cout<<total_line_count<<" "<<$1->get_name()<<$1->is_array()<<endl;
             symbolInfoList->add_declaration($1);
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1, $2, $3, $4 });
 
-            string s = $3->get_name();
-            int array_size = stoi(s);
-            $1->set_size(array_size);
+            $1->set_size(stoi($3->get_name()));
 
         }
         | ID error {
@@ -778,19 +714,15 @@ declaration_list :declaration_list COMMA ID {
 
 
 statements : statement {
-            // write_to_log("statements", "statement");
-            //write_to_console("statements", "statement");
 
             $$ = new SymbolInfo("","statements");
             $$->set_name(stringconcat({$1}));
             symbolInfoList->set_declarations({});
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($1->get_end_line());
-            $$->add_child({$1  });
+            $$->add_child({$1});
     }
         | statements statement {
-            // write_to_log("statements", "statements statement");
-            //write_to_console("statements", "statements statement");
 
             $$ = new SymbolInfo("","statements");
             $$->set_name(stringconcat({$1, $2}));
@@ -976,15 +908,6 @@ statement : var_declaration {
 
             write_in_code_segment("\t\tJMP " + for_label + "\n");
 
-            
-            // cout<<$4->get_name()<<endl;
-            // if($4->get_name() == "variableINCOP"){
-            //     varable_incop_decop_operation($4->get_var_name(), "DEC"); 
-            // }else if($4->get_name() == "variableDECOP"){
-            //     cout<<"called from decop\n";
-            //     varable_incop_decop_operation($4->get_var_name(), "INC"); 
-            // }
-
             write_in_code_segment("\t" + end_label + ":");
 
 
@@ -1046,8 +969,6 @@ statement : var_declaration {
     ;
 
 expression_statement : SEMICOLON {
-            // write_to_log("expression_statement", "SEMICOLON");
-            //write_to_console("expression_statement", "SEMICOLON");
             
             $$ = new SymbolInfo("","expression_statement");
             $$->set_name(stringconcat({$1}));
@@ -1056,9 +977,6 @@ expression_statement : SEMICOLON {
             $$->add_child({$1 });
         }
         | expression SEMICOLON {
-            // write_to_log("expression_statement", "expression SEMICOLON");
-            //write_to_console("expression_statement", "expression SEMICOLON");
-
             $$ = new SymbolInfo("","expression_statement");
             $$->set_name(stringconcat({$1, $2}));
             $$->set_specifier($1->get_specifier());
@@ -1071,7 +989,6 @@ expression_statement : SEMICOLON {
             yyerrok;
 
             write_error("Syntax error at expression of expression statement");
-            // log_file<<"Error at line no "<<total_line_count<<" : "<<"syntax error"<<"\n";
 
             SymbolInfo* error_info = new SymbolInfo("error", "expression", total_line_count);
             $$ = new SymbolInfo("", "expression_statement");
@@ -1109,6 +1026,7 @@ variable : ID {
             $$->set_start_line($1->get_start_line());
             $$->set_end_line($4->get_end_line());
             $$->add_child({$1,$2,$3,$4});
+
 
             // check if the variable is stored in the symboltable
             SymbolInfo* prev = symboltable->look_up($1->get_name());
@@ -1161,37 +1079,58 @@ expression : logic_expression {
                 
                 SymbolInfo* prev = symboltable->look_up($1->get_name());
                 
-                string code = "";
-                code +="\t\tPOP AX\n";
+                string code = "\t\tPOP AX\n";
                 int stack_offset = prev->get_stack_offset();
-               
-                if(stack_offset == -1){
-                    // IS A GLOBAL VAIRABLE
-                    if(! prev->is_array()){
-                        // NOT AN ARRAY
-                        code += "\t\tMOV " + prev->get_name() + ", AX \n\t\tPUSH " + prev->get_name() +"\n";
-                        write_in_code_segment(code);
-                    }   
-                }
-                else if(prev->is_param()) {
-                    // IS A PARAMETER 
-                        if(!prev->is_array()){
-                            // NOT A N ARRAY
-                            stack_offset += 2;
-                            code +="\t\tMOV [BP+" +to_string(stack_offset)+"], AX\t\t; move to "+prev->get_name()+"\n\t\tPUSH [BP+" + to_string(stack_offset) + "]\n";
-                        }
-                }else {
-                    // IS A LOCAL VARIABLE
-                    if(! prev->is_array()){
-                        if(stack_offset == 0){
-                            code += "\t\tMOV [BP], AX\t\t; move to "+prev->get_name()+"\n";
-                            code += "\t\tPUSH [BP]\n";
-                        }else{
-                            code +="\t\tMOV [BP-" +to_string(stack_offset)+"], AX\t\t; move to "+prev->get_name()+"\n\t\tPUSH [BP-" + to_string(stack_offset) + "]\n";
-                        }
+
+                if(!prev->is_array()){
+                    // NOT AN ARRAY
+                    if(stack_offset == -1){
+                        // A GLOBAL VARIABLE
+                        code +="\t\tMOV "+prev->get_name()+ ", AX\t\t; " + prev->get_name() + " \n";
+                    }else if(prev->is_param()){
+                        // IS A PARAMETER
+                        stack_offset += 2;
+                        code +="\t\tMOV [BP+" + to_string(stack_offset) + "], AX\n";
+                    }else{
+                        // IS A LOCAL VARIABLE
+                        code +="\t\tMOV [BP-" + to_string(stack_offset) + "], AX\n";
                     }
+                    code += "\t\tPUSH AX\n";
                 }
-                    write_in_code_segment(code);
+                else{
+                    // AN ARRAY
+                    code += "\t\tMOV DX, AX\n";
+                    code += "\t\tPOP AX\t\t;pop the index of the array\n";
+                    code += "\t\tMOV BX, 2\n";
+                    code += "\t\tMUL BX\t\t; AX = 2*index\n";
+                    code += "\t\tMOV BX, AX\n";
+
+                    if(stack_offset == -1){
+                        // A GLOBAL ARRAY
+                        code +="\t\tMOV " + prev->get_name() +"[BX] , DX\t\t; write DATA to ARRAY " + prev->get_name() +"\n";
+                    }else if(prev->is_param()){
+                        // A PARAMETER
+                        stack_offset += 2;
+                        code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                        code += "\t\tADD BX, AX\n";
+                        code += "\t\tPUSH BP\n";
+                        code += "\t\tADD BP, BX\n";
+                        code += "\t\tMOV [BP], DX\n";
+                        code += "\t\tPOP BP\n";
+                    }else{
+                        // A LOCAL VARIABLE
+                        code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                        code += "\t\tADD BX, AX\n";
+                        code += "\t\tPUSH BP\n";
+                        code += "\t\tSUB BP, BX\n";
+                        code += "\t\tMOV [BP], DX\n";
+                        code += "\t\tPOP BP\n";
+                    }
+
+                    code += "\t\tPUSH DX\n";
+                }
+
+                write_in_code_segment(code);
             }              
             
     }   
@@ -1492,22 +1431,52 @@ factor : variable {
             SymbolInfo* prev = symboltable->look_up($1->get_name());
             int stack_offset = prev->get_stack_offset();
             string code = "";
-            if(stack_offset == -1){
-                code +="\t\tMOV AX, "+ prev->get_name() + "       ; " + prev->get_name() + " \n"; 
-            }else{
-                if(prev->is_param()){
+
+            if(!prev->is_array()){
+                // NOT AN ARRAY
+                if(stack_offset == -1){
+                    // A GLOBAL VARIABLE
+                    code +="\t\tMOV AX, "+ prev->get_name() + "\t\t; " + prev->get_name() + " \n";
+                }else if(prev->is_param()){
+                    // IS A PARAMETER
                     stack_offset += 2;
-                    code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
+                    code +="\t\tMOV AX, [BP+" +to_string(stack_offset)+"]\t\t; "+ prev->get_name() + " accessed \n";
                 }else{
-                    if(stack_offset == 0){
-                        code += "\t\tMOV AX, [BP]      ; "+ prev->get_name() + " accessed \n";
-                    }else{
-                        code +="\t\tMOV AX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n"; 
-                    }
+                    // IS A LOCAL VARIABLE
+                    code +="\t\tMOV AX, [BP-" +to_string(stack_offset)+"]      ; "+ prev->get_name() + " accessed \n";
                 }
-                
-                code += "\t\tPUSH AX\n";
             }
+            else{
+                // AN ARRAY
+                code += "\t\tPOP AX\t\t;pop the index of the array\n";
+                code += "\t\tMOV BX, 2\n";
+                code += "\t\tMUL BX\t\t; AX = 2*index\n";
+                code += "\t\tMOV BX, AX\n";
+
+                if(stack_offset == -1){
+                    // A GLOBAL ARRAY
+                    code +="\t\tMOV AX, "+ prev->get_name() +"[BX]\t\t; READ DATA FROM ARRAY " + prev->get_name() +"\n";
+                }else if(prev->is_param()){
+                    // A PARAMETER
+                    stack_offset += 2;
+                    code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                    code += "\t\tADD BX, AX\n";
+                    code += "\t\tPUSH BP\n";
+                    code += "\t\tADD BP, BX\n";
+                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tPOP BP\n";
+                }else{
+                    // A LOCAL VARIABLE
+                    code += "\t\tMOV AX, "+to_string(stack_offset)+"\n";
+                    code += "\t\tADD BX, AX\n";
+                    code += "\t\tPUSH BP\n";
+                    code += "\t\tSUB BP, BX\n";
+                    code += "\t\tMOV AX, [BP]\n";
+                    code += "\t\tPOP BP\n";
+                }
+            }
+            code += "\t\tPUSH AX\n";
+
             if(!in_argument_list)
                 write_in_code_segment(code);
     }
@@ -1587,7 +1556,8 @@ factor : variable {
             
         }
         | ID LPAREN argument_list RPAREN {
-            // function call
+            // FUNCTION CALL
+
             in_argument_list = false;
             $$ = new SymbolInfo("", "factor");
 
@@ -1688,35 +1658,30 @@ argument_list : arguments {
             
         }
         
-        // | arguments error{
-        //     //write_to_console("argument_list", "arguments error");
+        | arguments error{
+            // the lookahead token is the next token that the parser examines. 
+            // if there is an error the look ahead token becomes the token where the error was found
+            // to find the correct error recovery action we need to clear the lookahead token
+            // by using "yyclearin" we are serving the purpose of clearing the lookahead
+            yyclearin; 
+            // When yyparse() discovers ungrammatical input, it calls yyerror(). 
+            // It also sets a flag saying that it is now in an error state. 
+            // yyparse() stays in this error state until it sees three consecutive tokens 
+            // that are not part of the error.
+            // the yyerrok allows to leave the error state earlier than finding 3 tokens
+            //  yyerrok says-->The old error is finished. If something else goes wrong, 
+            //                  it is to be regarded as a new error.
+            yyerrok;
+            cout<<"Syntax error at arguments\n";
+            $$ = new SymbolInfo("", "argument_list");
+            $$->set_name(stringconcat({$1}));
+            $$->set_parameters($1->get_parameters());
 
-        //     // the lookahead token is the next token that the parser examines. 
-        //     // if there is an error the look ahead token becomes the token where the error was found
-        //     // to find the correct error recovery action we need to clear the lookahead token
-        //     // by using "yyclearin" we are serving the purpose of clearing the lookahead
-        //     yyclearin; 
-        //     // When yyparse() discovers ungrammatical input, it calls yyerror(). 
-        //     // It also sets a flag saying that it is now in an error state. 
-        //     // yyparse() stays in this error state until it sees three consecutive tokens 
-        //     // that are not part of the error.
-        //     // the yyerrok allows to leave the error state earlier than finding 3 tokens
-        //     //  yyerrok says-->The old error is finished. If something else goes wrong, 
-        //     //                  it is to be regarded as a new error.
-        //     yyerrok;
-        //     cout<<"Syntax error at arguments\n";
-        //     $$ = new SymbolInfo("", "argument_list");
-        //     $$->set_name(stringconcat({$1}));
-        //     $$->set_parameters($1->get_parameters());
-
-        // }
+        }
         ;
 
 
-arguments : arguments COMMA {in_argument_list = true;} logic_expression {
-            // write_to_log("arguments", "arguments COMMA logic_expression");
-            //write_to_console("arguments", "arguments COMMA logic_expression");
-            
+arguments : arguments COMMA {in_argument_list = true;} logic_expression {            
             $$ = new SymbolInfo("", "arguments");
             $$->set_name(stringconcat({$1, $2, $4}));
             $$->set_start_line($1->get_start_line());
@@ -1727,15 +1692,10 @@ arguments : arguments COMMA {in_argument_list = true;} logic_expression {
                 write_error("Void cannot be used in argument "  );
                 $$->set_specifier("error");
             }
-
-            cout<<in_argument_list<<endl;
-
             $$->set_parameters($1->get_parameters());
             $$->add_parameter($4);
         }
         | {in_argument_list = true;} logic_expression {
-            // write_to_log("arguments", "logic_expression");
-            //write_to_console("arguments", "logic_expression");
 
             $$ = new SymbolInfo("", "arguments");
             $$->set_name(stringconcat({$2}));

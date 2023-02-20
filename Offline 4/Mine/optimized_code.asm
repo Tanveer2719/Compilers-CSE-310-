@@ -9,8 +9,8 @@
 		MOV BP, SP		;make BP = SP
 		SUB SP, 2  	;variable k declared
 		MOV AX, 5		 ;integer found
-		MOV [BP-2], AX		; move to k
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 	label1:
 		MOV AX, [BP-2]      ; k accessed 
 		PUSH AX
@@ -41,7 +41,7 @@
 	label4:
 		MOV AX, 3		 ;integer found
 		PUSH AX
-		MOV AX, [BP+4]      ; a accessed 
+		MOV AX, [BP+4]		; a accessed 
 		MOV CX, AX
 		POP AX
 		CWD
@@ -56,8 +56,8 @@
 		POP BP
 		RET 4
 		MOV AX, 9		 ;integer found
-		MOV [BP+4], AX		; move to a
-		PUSH [BP+4]
+		MOV [BP+4], AX
+		PUSH AX
 	f ENDP
 	g PROC
 		PUSH BP		;save BP
@@ -68,18 +68,18 @@
 		PUSH AX		; pushed a
 		CALL f
 		PUSH AX
-		MOV AX, [BP+6]      ; a accessed 
+		MOV AX, [BP+6]		; a accessed 
 		POP CX		;f(a) popped
 		ADD CX, AX
 		PUSH CX
-		MOV AX, [BP+4]      ; b accessed 
+		MOV AX, [BP+4]		; b accessed 
 		POP CX		;f(a)+a popped
 		ADD AX, CX
-		MOV [BP-2], AX		; move to x
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 		MOV AX, 0		 ;integer found
-		MOV [BP-4], AX		; move to i
-		PUSH [BP-4]
+		MOV [BP-4], AX
+		PUSH AX
 	label6:				; label for checking boolean expression
 		MOV AX, [BP-4]      ; i accessed 
 		PUSH AX
@@ -133,8 +133,8 @@
 		MOV AX, 5		 ;integer found
 		POP CX		;x popped
 		ADD AX, CX
-		MOV [BP-2], AX		; move to x
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 		JMP label16
 	label15:
 		MOV AX, [BP-2]      ; x accessed 
@@ -143,8 +143,8 @@
 		POP CX		;x popped
 		SUB CX, AX
 		MOV AX, CX
-		MOV [BP-2], AX		; move to x
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 	label16:
 		JMP label11				;go to incrementing or decrementing
 	label9:				 label for statements.next
@@ -163,24 +163,24 @@
 		SUB SP, 2  	;variable b declared
 		SUB SP, 2  	;variable i declared
 		MOV AX, 1		 ;integer found
-		MOV [BP-2], AX		; move to a
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 		MOV AX, 2		 ;integer found
-		MOV [BP-4], AX		; move to b
-		PUSH [BP-4]
+		MOV [BP-4], AX
+		PUSH AX
 		MOV AX, [BP-2]		 ; access  a
 		PUSH AX		; pushed a
 		MOV AX, [BP-4]		 ; access  b
 		PUSH AX		; pushed b
 		CALL g
-		MOV [BP-2], AX		; move to a
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 		MOV AX, [BP -2]		; ax =  a 
 		CALL PRINT_NUMBER
 		CALL NEWLINE
 		MOV AX, 0		 ;integer found
-		MOV [BP-6], AX		; move to i
-		PUSH [BP-6]
+		MOV [BP-6], AX
+		PUSH AX
 	label17:				; label for checking boolean expression
 		MOV AX, [BP-6]      ; i accessed 
 		PUSH AX
@@ -206,8 +206,8 @@
 		JMP label17		; move to the condition check again
 	label21:				 label for b_true
 		MOV AX, 3		 ;integer found
-		MOV [BP-2], AX		; move to a
-		PUSH [BP-2]
+		MOV [BP-2], AX
+		PUSH AX
 	label23:
 		MOV AX, [BP-2]      ; a accessed 
 		PUSH AX

@@ -135,17 +135,18 @@ extern int yydebug;
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 union semrec
 {
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 
     SymbolInfo* symbolInfo;
+    int line;
 
-#line 146 "y.tab.h"
+#line 147 "y.tab.h"
 
 };
-#line 174 "1905025_Syntax_and_Semantic_Analyzer.y"
+#line 274 "1905025_Syntax_and_Semantic_Analyzer.y"
 typedef union semrec YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define YYSTYPE_IS_DECLARED 1
